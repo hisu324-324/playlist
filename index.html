@@ -68,8 +68,10 @@
     const DEFAULT_SHEET_API_URL = ""; 
 
     // --- Google Apps Script Guide Code defined as safe string constant ---
+    // [탭 고정 및 예외 우회 버전] 사용자가 활성화한 시트와 무관하게 1번째 시트 탭을 무조건 추적합니다.
     const APPS_SCRIPT_CODE = `function doGet(e) {
-  var sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getSheets()[0]; // 탭 이름에 구애받지 않고 무조건 첫 번째 탭 고정!
   var action = e.parameter.action;
   
   if (action === 'delete') {
@@ -88,6 +90,13 @@
   
   var data = sheet.getDataRange().getValues();
   var rows = [];
+  
+  if (data.length <= 1) {
+    return ContentService.createTextOutput(JSON.stringify([]))
+      .setMimeType(ContentService.MimeType.JSON)
+      .setHeader("Access-Control-Allow-Origin", "*");
+  }
+
   for (var i = 1; i < data.length; i++) {
     rows.push({
       id: String(data[i][7] || data[i][6] || "id_" + i), 
@@ -107,7 +116,8 @@
 }
 
 function doPost(e) {
-  var sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getSheets()[0]; // 탭 이름에 구애받지 않고 무조건 첫 번째 탭 고정!
   var postData = JSON.parse(e.postData.contents);
   var ts = Date.now();
   
@@ -278,6 +288,7 @@ function doPost(e) {
       const audioRef = useRef(null);
       const formAudioRef = useRef(null); // Separate player for form search preview
 
+      // --- STREAMING_CHUNK: Fetching sheet data logic... ---
       const fetchTracksFromSheet = async (showPulse = true) => {
         const trimmedUrl = sheetUrl ? sheetUrl.trim() : "";
         if (!trimmedUrl || !trimmedUrl.startsWith("http")) {
@@ -334,6 +345,7 @@ function doPost(e) {
         return () => clearInterval(interval);
       }, [sheetUrl]);
 
+      // --- STREAMING_CHUNK: Audio pre-listen validation search logic... ---
       const handleSearchAndPreview = async () => {
         if (!title.trim() || !artist.trim()) {
           setErrorMsg('미리 들을 곡명과 가수를 먼저 적어주세요.');
@@ -380,14 +392,12 @@ function doPost(e) {
         if (formAudioRef.current) {
           formAudioRef.current.pause();
         }
-        // User confirmed track
         setErrorMsg('✓ 노래가 확정되었습니다! 아래 등록 버튼을 눌러 제출을 마쳐주세요.');
       };
 
       const toggleFormPreviewPlay = () => {
         if (!formAudioRef.current || !foundTrack) return;
         
-        // Pause main player first to prevent audio overlaps
         if (audioRef.current) {
           audioRef.current.pause();
           setIsPlaying(false);
@@ -406,6 +416,7 @@ function doPost(e) {
         }
       };
 
+      // --- STREAMING_CHUNK: Playback synchronizations... ---
       useEffect(() => {
         if (!nowPlaying) {
           setAudioUrl('');
@@ -415,7 +426,6 @@ function doPost(e) {
           return;
         }
 
-        // Pause form preview player when playing board songs
         if (formAudioRef.current) {
           formAudioRef.current.pause();
           setIsFormPreviewPlaying(false);
@@ -467,7 +477,6 @@ function doPost(e) {
         }
       }, [isPlaying, audioUrl]);
 
-      // Simulated playback if iTunes preview is not available
       useEffect(() => {
         let interval = null;
         if (isPlaying && !audioUrl) {
@@ -564,7 +573,7 @@ function doPost(e) {
 
             const compressedBase64 = canvas.toDataURL('image/jpeg', quality);
             setIsCompressing(false);
-            callback(compressedBase64);
+            callback(compressedDataUrl => callback(compressedBase64));
           };
           img.onerror = () => {
             setIsCompressing(false);
@@ -583,8 +592,8 @@ function doPost(e) {
         const file = e.target.files[0];
         if (!file) return;
         setErrorMsg('');
-        compressImage(file, 600, 600, 0.7, (compressedDataUrl) => {
-          setUploadedImage(compressedDataUrl);
+        compressImage(file, 600, 600, 0.7, (compressedBase64) => {
+          setUploadedImage(compressedBase64);
         });
       };
 
@@ -626,6 +635,7 @@ function doPost(e) {
         }
       };
 
+      // --- STREAMING_CHUNK: Handling track uploads... ---
       const handleSubmitTrack = async (e) => {
         e.preventDefault();
         if (!studentName.trim() || !title.trim() || !artist.trim()) {
@@ -636,7 +646,6 @@ function doPost(e) {
         setIsSubmitting(true);
         setErrorMsg('');
 
-        // Clean up pre-upload player
         if (formAudioRef.current) {
           formAudioRef.current.pause();
         }
@@ -795,6 +804,7 @@ function doPost(e) {
 
       const isSheetUrlValid = sheetUrl && sheetUrl.trim().startsWith("http");
 
+      // --- STREAMING_CHUNK: Rendering markup and modals... ---
       return (
         <div className="min-h-screen pb-12">
           
@@ -935,8 +945,8 @@ function doPost(e) {
                     <ul className="list-disc pl-4 space-y-1">
                       <li>오른쪽 상단의 <strong>새 배포(New Deployment)</strong> 버튼을 누릅니다.</li>
                       <li>유형을 <strong>웹앱(Web app)</strong>으로 선택합니다.</li>
-                      <li>구성에서 <strong>다음 사용자로 실행</strong>을 <strong>나(본인 계정)</strong>로 설정합니다.</li>
-                      <li><strong>액세스할 수 있는 사용자</strong>를 반드시 <strong>모든 사용자(Anyone)</strong>로 설정해야 학생들이 로그인 없이 자유롭게 쓸 수 있습니다.</li>
+                      <li>구성에서 <strong>다음 사용자로 실행</strong>을 <span className="font-bold text-red-500">나(본인 계정)</span>로 설정합니다.</li>
+                      <li><strong>액세스할 수 있는 사용자</strong>를 반드시 <span className="font-bold text-red-500">모든 사용자(Anyone)</span>로 설정해야 학생들이 로그인 없이 자유롭게 쓸 수 있습니다.</li>
                       <li>배포 버튼을 누르고 권한 승인을 완료한 후 생성된 <strong>웹앱 URL</strong>을 복사해 설정창에 넣어주세요!</li>
                     </ul>
                   </div>
@@ -958,7 +968,7 @@ function doPost(e) {
             </div>
           )}
 
-          {}
+          {/* Top Banner and Navigation Bar */}
           <header className="relative overflow-hidden pt-12 pb-16 text-center text-sky-950 px-4">
             <div className="absolute top-0 left-0 right-0 h-4 bg-sky-300 opacity-20"></div>
             
@@ -1020,7 +1030,6 @@ function doPost(e) {
           {/* Main content area */}
           <main className="max-w-7xl mx-auto px-4 md:px-6 grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
             
-            {}
             {/* Left Box - Song Registrations */}
             <section className="lg:col-span-5 bg-white/90 rounded-3xl p-6 md:p-8 shadow-xl shadow-sky-900/10 border border-sky-100 relative">
               <div className="absolute -top-3 -right-3 bg-yellow-400 text-yellow-950 font-bold px-3 py-1 rounded-xl text-xs shadow-md transform rotate-6 animate-pulse">
@@ -1073,7 +1082,6 @@ function doPost(e) {
                   </div>
                 </div>
 
-                {}
                 {/* PREVIEW VERIFICATION MODULE */}
                 <div className="bg-sky-50/70 border border-sky-200/60 rounded-2xl p-4 space-y-3">
                   <div className="flex items-center justify-between">
@@ -1312,7 +1320,7 @@ function doPost(e) {
                 <button
                   type="submit"
                   disabled={isSubmitting || isCompressing}
-                  className="w-full bg-sky-600 hover:bg-sky-700 disabled:bg-slate-300 text-white font-bold py-3.5 rounded-xl shadow-lg shadow-sky-600/10 transition-colors flex items-center justify-center gap-2 animate-pulse hover:animate-none"
+                  className="w-full bg-sky-600 hover:bg-sky-700 disabled:bg-slate-300 text-white font-bold py-3.5 rounded-xl shadow-lg shadow-sky-600/10 transition-colors flex items-center justify-center gap-2"
                 >
                   {isSubmitting ? (
                     <>
@@ -1329,7 +1337,6 @@ function doPost(e) {
               </form>
             </section>
 
-            {}
             {/* Right Box - Combined Playlist */}
             <section className="lg:col-span-7 space-y-6" id="class-board-section">
               
@@ -1578,7 +1585,6 @@ function doPost(e) {
             </section>
           </main>
 
-          {}
           {/* Worksheet Detail Card Download Modal */}
           {showDetailModal && nowPlaying && (
             <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
