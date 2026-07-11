@@ -68,33 +68,22 @@
     const DEFAULT_SHEET_API_URL = ""; 
 
     // --- Google Apps Script Guide Code defined as safe string constant ---
-    // [탭 고정 및 예외 우회 버전] 사용자가 활성화한 시트와 무관하게 1번째 시트 탭을 무조건 추적합니다.
+    // [CORS 및 구문 오류 전면 개정 완료] Apps Script에서 지원하지 않는 .setHeader() 호출을 완전히 제거하였습니다.
     const APPS_SCRIPT_CODE = `function doGet(e) {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
-  var sheet = ss.getSheets()[0]; // 탭 이름에 구애받지 않고 무조건 첫 번째 탭 고정!
-  var action = e.parameter.action;
-  
-  if (action === 'delete') {
-    var idToDelete = e.parameter.id;
-    var data = sheet.getDataRange().getValues();
-    for (var i = 1; i < data.length; i++) {
-      if (String(data[i][7] || data[i][6]) === idToDelete) {
-        sheet.deleteRow(i + 1);
-        break;
-      }
-    }
-    return ContentService.createTextOutput(JSON.stringify({status: "deleted"}))
-      .setMimeType(ContentService.MimeType.JSON)
-      .setHeader("Access-Control-Allow-Origin", "*");
+  if (!ss) {
+    return ContentService.createTextOutput(JSON.stringify({
+      error: "오류: 스프레드시트 내부에서 [확장 프로그램] -> [Apps Script]로 만든 스크립트가 아닙니다. 반드시 스프레드시트 창 안에서 생성해 주세요!"
+    })).setMimeType(ContentService.MimeType.JSON);
   }
   
+  var sheet = ss.getSheets()[0]; // 무조건 첫 번째 탭 고정
   var data = sheet.getDataRange().getValues();
   var rows = [];
   
   if (data.length <= 1) {
     return ContentService.createTextOutput(JSON.stringify([]))
-      .setMimeType(ContentService.MimeType.JSON)
-      .setHeader("Access-Control-Allow-Origin", "*");
+      .setMimeType(ContentService.MimeType.JSON);
   }
 
   for (var i = 1; i < data.length; i++) {
@@ -111,13 +100,12 @@
     });
   }
   return ContentService.createTextOutput(JSON.stringify(rows))
-    .setMimeType(ContentService.MimeType.JSON)
-    .setHeader("Access-Control-Allow-Origin", "*");
+    .setMimeType(ContentService.MimeType.JSON);
 }
 
 function doPost(e) {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
-  var sheet = ss.getSheets()[0]; // 탭 이름에 구애받지 않고 무조건 첫 번째 탭 고정!
+  var sheet = ss.getSheets()[0];
   var postData = JSON.parse(e.postData.contents);
   var ts = Date.now();
   
@@ -134,8 +122,7 @@ function doPost(e) {
   ]);
   
   return ContentService.createTextOutput(JSON.stringify({status: "success"}))
-    .setMimeType(ContentService.MimeType.JSON)
-    .setHeader("Access-Control-Allow-Origin", "*");
+    .setMimeType(ContentService.MimeType.JSON);
 }`;
 
     const SUMMER_PRESETS = [
@@ -166,7 +153,6 @@ function doPost(e) {
       }
     ];
 
-    // --- Inline Custom SVG Icons Components ---
     const IconPlus = () => (
       <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"></path></svg>
     );
@@ -181,9 +167,6 @@ function doPost(e) {
     );
     const IconDownload = () => (
       <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"></path></svg>
-    );
-    const IconTrash = () => (
-      <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
     );
     const IconPlay = () => (
       <svg className="w-5 h-5 fill-current" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"></path></svg>
@@ -210,7 +193,7 @@ function doPost(e) {
       <svg className="w-3.5 h-3.5 text-white" fill="none" stroke="currentColor" strokeWidth="3" viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"></path></svg>
     );
     const IconAlert = () => (
-      <svg className="w-5 h-5 text-rose-500" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"></circle><path d="M12 8v4m0 4h.01"></path></svg>
+      <svg className="w-5 h-5 text-amber-600" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"></circle><path d="M12 8v4m0 4h.01"></path></svg>
     );
     const IconVolume = () => (
       <svg className="w-5 h-5 text-slate-400 hover:text-white transition-colors" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M11 5L6 9H2v6h4l5 4V5zM15.54 8.46a5 5 0 010 7.07"></path></svg>
@@ -241,6 +224,9 @@ function doPost(e) {
       const [lastSyncTime, setLastSyncTime] = useState(null);
       const [isSyncing, setIsSyncing] = useState(false);
       
+      // Google API Error state tracker
+      const [googleAuthError, setGoogleAuthError] = useState(false);
+      
       // Form Input States
       const [studentName, setStudentName] = useState('');
       const [title, setTitle] = useState('');
@@ -254,7 +240,6 @@ function doPost(e) {
       const [isFormPreviewPlaying, setIsFormPreviewPlaying] = useState(false);
 
       // Modals
-      const [confirmDeleteId, setConfirmDeleteId] = useState(null);
       const [showSettingsModal, setShowSettingsModal] = useState(false);
       const [showGuideModal, setShowGuideModal] = useState(false);
       const [settingsInputUrl, setSettingsInputUrl] = useState(sheetUrl);
@@ -288,7 +273,6 @@ function doPost(e) {
       const audioRef = useRef(null);
       const formAudioRef = useRef(null); // Separate player for form search preview
 
-      // --- STREAMING_CHUNK: Fetching sheet data logic... ---
       const fetchTracksFromSheet = async (showPulse = true) => {
         const trimmedUrl = sheetUrl ? sheetUrl.trim() : "";
         if (!trimmedUrl || !trimmedUrl.startsWith("http")) {
@@ -296,6 +280,7 @@ function doPost(e) {
           setTracks(localDemo);
           setLoading(false);
           setLastSyncTime(new Date());
+          setGoogleAuthError(false);
           return;
         }
 
@@ -303,7 +288,17 @@ function doPost(e) {
         try {
           const response = await fetch(trimmedUrl + "?t=" + Date.now());
           if (!response.ok) throw new Error("네트워크 응답 오류");
-          const data = await response.json();
+          
+          const rawText = await response.text();
+          
+          // 핵심 검증: 구글 시트 앱스스크립트가 차단당해 HTML 로그인 페이지를 보냈는지 진단
+          if (rawText.trim().startsWith("<") || rawText.includes("google-site-verification")) {
+            setGoogleAuthError(true);
+            throw new Error("Google_Authorization_Required");
+          }
+
+          const data = JSON.parse(rawText);
+          setGoogleAuthError(false);
           
           if (Array.isArray(data)) {
             const sanitizedData = data.map(item => ({
@@ -324,6 +319,9 @@ function doPost(e) {
           }
         } catch (err) {
           console.warn("Google Sheets API 연동 일시적 오류: 로컬 데이터를 유지합니다.", err);
+          if (err.message === "Google_Authorization_Required") {
+            setGoogleAuthError(true);
+          }
           const localDemo = JSON.parse(localStorage.getItem('summer_playlist_demo_data') || '[]');
           setTracks(localDemo);
         } finally {
@@ -345,7 +343,6 @@ function doPost(e) {
         return () => clearInterval(interval);
       }, [sheetUrl]);
 
-      // --- STREAMING_CHUNK: Audio pre-listen validation search logic... ---
       const handleSearchAndPreview = async () => {
         if (!title.trim() || !artist.trim()) {
           setErrorMsg('미리 들을 곡명과 가수를 먼저 적어주세요.');
@@ -416,7 +413,6 @@ function doPost(e) {
         }
       };
 
-      // --- STREAMING_CHUNK: Playback synchronizations... ---
       useEffect(() => {
         if (!nowPlaying) {
           setAudioUrl('');
@@ -573,7 +569,7 @@ function doPost(e) {
 
             const compressedBase64 = canvas.toDataURL('image/jpeg', quality);
             setIsCompressing(false);
-            callback(compressedDataUrl => callback(compressedBase64));
+            callback(compressedBase64);
           };
           img.onerror = () => {
             setIsCompressing(false);
@@ -593,7 +589,7 @@ function doPost(e) {
         if (!file) return;
         setErrorMsg('');
         compressImage(file, 600, 600, 0.7, (compressedBase64) => {
-          setUploadedImage(compressedBase64);
+          setUploadedImage(compressedDataUrl);
         });
       };
 
@@ -635,7 +631,6 @@ function doPost(e) {
         }
       };
 
-      // --- STREAMING_CHUNK: Handling track uploads... ---
       const handleSubmitTrack = async (e) => {
         e.preventDefault();
         if (!studentName.trim() || !title.trim() || !artist.trim()) {
@@ -733,39 +728,6 @@ function doPost(e) {
         }
       };
 
-      const executeDeleteTrack = async () => {
-        if (!confirmDeleteId) return;
-
-        const trimmedUrl = sheetUrl ? sheetUrl.trim() : "";
-        if (!trimmedUrl || !trimmedUrl.startsWith('http')) {
-          const currentDemo = JSON.parse(localStorage.getItem('summer_playlist_demo_data') || '[]');
-          const updatedDemo = currentDemo.filter(t => t.id !== confirmDeleteId);
-          localStorage.setItem('summer_playlist_demo_data', JSON.stringify(updatedDemo));
-          setTracks(updatedDemo);
-          if (nowPlaying?.id === confirmDeleteId) {
-            setNowPlaying(null);
-            setIsPlaying(false);
-          }
-          setConfirmDeleteId(null);
-          return;
-        }
-
-        try {
-          const deleteUrl = trimmedUrl + "?action=delete&id=" + confirmDeleteId;
-          await fetch(deleteUrl, { method: 'GET' }); 
-          await fetchTracksFromSheet(true);
-          
-          if (nowPlaying?.id === confirmDeleteId) {
-            setNowPlaying(null);
-            setIsPlaying(false);
-          }
-          setConfirmDeleteId(null);
-        } catch (err) {
-          console.error("Deletion failed:", err);
-          setErrorMsg('해당 트랙을 삭제하는 과정 중 오류가 발생했습니다.');
-        }
-      };
-
       const handlePlayTrack = (track) => {
         setNowPlaying(track);
       };
@@ -804,7 +766,6 @@ function doPost(e) {
 
       const isSheetUrlValid = sheetUrl && sheetUrl.trim().startsWith("http");
 
-      // --- STREAMING_CHUNK: Rendering markup and modals... ---
       return (
         <div className="min-h-screen pb-12">
           
@@ -815,37 +776,6 @@ function doPost(e) {
               src={foundTrack.previewUrl} 
               onEnded={() => setIsFormPreviewPlaying(false)}
             />
-          )}
-
-          {/* Custom Confirm Delete Modal */}
-          {confirmDeleteId && (
-            <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-              <div className="bg-white rounded-2xl p-6 max-w-sm w-full shadow-2xl border border-sky-100 text-center space-y-4">
-                <div className="w-12 h-12 bg-rose-50 rounded-full flex items-center justify-center mx-auto text-rose-500">
-                  <IconTrash />
-                </div>
-                <div>
-                  <h3 className="text-lg font-bold text-slate-900">이 노래를 삭제하시겠습니까?</h3>
-                  <p className="text-xs text-slate-500 mt-1">이 동작은 되돌릴 수 없습니다.</p>
-                </div>
-                <div className="flex gap-2">
-                  <button 
-                    type="button"
-                    onClick={() => setConfirmDeleteId(null)}
-                    className="flex-1 py-2.5 rounded-xl bg-slate-100 text-slate-700 text-sm font-semibold hover:bg-slate-200 transition-colors"
-                  >
-                    취소
-                  </button>
-                  <button 
-                    type="button"
-                    onClick={executeDeleteTrack}
-                    className="flex-1 py-2.5 rounded-xl bg-rose-500 text-white text-sm font-semibold hover:bg-rose-600 transition-colors"
-                  >
-                    삭제 완료
-                  </button>
-                </div>
-              </div>
-            </div>
           )}
 
           {/* Settings Modal */}
@@ -913,41 +843,42 @@ function doPost(e) {
                 <div className="flex items-center justify-between border-b border-slate-100 pb-3">
                   <h3 className="text-lg font-bold text-slate-900 flex items-center gap-2">
                     <IconHelp />
-                    구글 스프레드시트 5분 연동 가이드
+                    구글 스프레드시트 연동 핵심 완벽 가이드
                   </h3>
                   <button type="button" onClick={() => setShowGuideModal(false)} className="text-slate-400 hover:text-slate-600 font-bold">✕</button>
                 </div>
 
                 <div className="space-y-4 text-xs md:text-sm text-slate-700 leading-relaxed">
-                  <div className="space-y-1">
-                    <h4 className="font-bold text-sky-800">1단계: 구글 스프레드시트 만들기</h4>
-                    <p>새 구글 스프레드시트를 만들고 첫 번째 행(A1~I1)을 다음과 같이 작성해 둡니다.</p>
-                    <div className="p-2 bg-slate-50 border rounded font-mono text-xs overflow-x-auto whitespace-nowrap">
-                      [A열: 이름] [B열: 제목] [C열: 가수] [D열: 코멘트] [E열: 커버종류] [F열: 이미지데이터] [G열: 타임스탬프] [H열: 트랙ID] [I열: 유튜브링크]
-                    </div>
+                  <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl space-y-1">
+                    <h4 className="font-bold text-rose-800 flex items-center gap-1">⚠️ 주의: 시트와 연결되지 않은 스크립트는 차단됩니다!</h4>
+                    <p className="text-xs leading-relaxed text-rose-700">
+                      구글 드라이브 홈화면에서 바로 독립형 스크립트를 생성하면 시트에 접근할 수 없어 연동에 실패합니다. 
+                      반드시 <strong>해당 구글 스프레드시트 화면 안에서 [확장 프로그램] ➔ [Apps Script]</strong>를 눌러야 연동이 보증됩니다.
+                    </p>
                   </div>
 
                   <div className="space-y-1">
-                    <h4 className="font-bold text-sky-800">2단계: 앱스 스크립트 에디터 열기</h4>
-                    <p>구글 시트 상단 메뉴의 <strong>확장 프로그램(Extensions) → Apps Script</strong>를 클릭합니다.</p>
+                    <h4 className="font-bold text-sky-800">1단계: 스프레드시트 안에서 에디터 열기</h4>
+                    <p>사용하실 구글 시트 상단 메뉴의 <strong>확장 프로그램(Extensions) ➔ Apps Script</strong>를 클릭합니다.</p>
                   </div>
 
                   <div className="space-y-1">
-                    <h4 className="font-bold text-sky-800">3단계: 아래 소스코드를 복사하여 붙여넣기</h4>
-                    <p>기존에 쓰여 있던 내용을 지우고 아래 소스를 통째로 붙여넣은 뒤 저장(Ctrl+S)합니다.</p>
+                    <h4 className="font-bold text-sky-800">2단계: 아래 소스코드를 전체 덮어쓰기</h4>
+                    <p>기존에 쓰여 있던 코드 영역을 전부 지우고 하단의 핵심 연동 소스코드를 붙여넣은 뒤 저장(Ctrl+S)합니다.</p>
                     <pre className="p-2.5 bg-slate-950 text-slate-200 rounded text-[10px] font-mono overflow-x-auto max-h-48 whitespace-pre">
                       {APPS_SCRIPT_CODE}
                     </pre>
                   </div>
 
                   <div className="space-y-1">
-                    <h4 className="font-bold text-sky-800">4단계: 웹앱으로 배포하기 (가장 중요!)</h4>
+                    <h4 className="font-bold text-sky-800">3단계: 웹앱으로 신규 배포하기</h4>
                     <ul className="list-disc pl-4 space-y-1">
-                      <li>오른쪽 상단의 <strong>새 배포(New Deployment)</strong> 버튼을 누릅니다.</li>
+                      <li>오른쪽 상단의 <strong>배포(Deploy) ➔ 새 배포(New Deployment)</strong>를 누릅니다.</li>
                       <li>유형을 <strong>웹앱(Web app)</strong>으로 선택합니다.</li>
-                      <li>구성에서 <strong>다음 사용자로 실행</strong>을 <span className="font-bold text-red-500">나(본인 계정)</span>로 설정합니다.</li>
-                      <li><strong>액세스할 수 있는 사용자</strong>를 반드시 <span className="font-bold text-red-500">모든 사용자(Anyone)</span>로 설정해야 학생들이 로그인 없이 자유롭게 쓸 수 있습니다.</li>
-                      <li>배포 버튼을 누르고 권한 승인을 완료한 후 생성된 <strong>웹앱 URL</strong>을 복사해 설정창에 넣어주세요!</li>
+                      <li><strong>다음 사용자로 실행</strong>: <span className="font-bold text-red-500">나(본인 구글 계정)</span> 설정.</li>
+                      <li><strong>액세스할 수 있는 사용자</strong>: 반드시 <span className="font-bold text-red-500">모든 사용자(Anyone)</span>로 지정.</li>
+                      <li>배포 버튼 클릭 후 구글 로그인 ➔ <strong>고급(Advanced) ➔ 안전하지 않은 이동</strong>을 눌러 권한을 전적으로 승인합니다.</li>
+                      <li>발행된 최종 웹앱 URL을 복사하여 연동 설정 창에 대입해 주시면 연동이 활성화됩니다!</li>
                     </ul>
                   </div>
                 </div>
@@ -969,38 +900,57 @@ function doPost(e) {
           )}
 
           {/* Top Banner and Navigation Bar */}
-          <header className="relative overflow-hidden pt-12 pb-16 text-center text-sky-950 px-4">
+          <header className="relative overflow-hidden pt-12 pb-8 text-center text-sky-950 px-4">
             <div className="absolute top-0 left-0 right-0 h-4 bg-sky-300 opacity-20"></div>
             
-            <div className="max-w-4xl mx-auto flex items-center justify-between px-4 py-2 mb-6 bg-white/60 border border-white/80 rounded-2xl text-xs shadow-sm">
-              <div className="flex items-center gap-2">
-                <span className={"w-2.5 h-2.5 rounded-full " + (isSyncing ? "bg-amber-400 animate-ping" : (isSheetUrlValid ? "bg-emerald-500 animate-pulse" : "bg-slate-400"))}></span>
-                <span className="font-semibold text-slate-700">
-                  {isSheetUrlValid ? "구글 시트 실시간 연동 중" : "로컬 데모 모드 (안전 구동)"}
-                </span>
-              </div>
-              <div className="flex items-center gap-3 text-slate-500">
-                <span>동기화: {lastSyncTime ? lastSyncTime.toLocaleTimeString() : '없음'}</span>
-                <button 
-                  onClick={() => fetchTracksFromSheet(true)}
-                  disabled={isSyncing}
-                  className="p-1.5 hover:bg-sky-100 rounded-lg transition-colors flex items-center gap-1 font-bold text-sky-800"
-                  title="강제 새로고침"
-                >
-                  <IconRefresh />
-                  <span>새로고침</span>
-                </button>
-                <button 
-                  onClick={() => {
-                    setSettingsInputUrl(sheetUrl);
-                    setShowSettingsModal(true);
-                  }}
-                  className="p-1.5 hover:bg-sky-100 rounded-lg transition-colors text-slate-600 flex items-center gap-1"
-                  title="설정"
-                >
-                  <IconSettings />
-                  <span className="font-bold">시트 연동</span>
-                </button>
+            {/* Realtime diagnostic board */}
+            <div className="max-w-4xl mx-auto flex flex-col gap-3.5 mb-6">
+              
+              {/* Google API Auth Redirect Alert (진단 안내판) */}
+              {googleAuthError && (
+                <div className="p-4 bg-amber-50 border border-amber-200 rounded-2xl text-left flex items-start gap-3 shadow-md animate-pulse">
+                  <span className="p-1 bg-amber-100 rounded-lg text-amber-600 shrink-0"><IconAlert /></span>
+                  <div className="space-y-1 text-xs leading-relaxed text-amber-900">
+                    <h4 className="font-bold text-sm text-amber-950">구글 로그인/권한 승인이 필요합니다!</h4>
+                    <p>
+                      입력하신 구글 웹앱에서 데이터를 차단하고 있습니다. 원인은 웹앱 배포 설정에서 <strong>'액세스할 수 있는 사용자(Who has access)'</strong>를 
+                      '모든 사용자(Anyone)'로 선택하지 않았거나, 구글 계정 권한 검토(고급 버튼을 눌러 승인)를 끝까지 마지않아 연동이 승인되지 않은 상황입니다. 
+                      우측의 [시트 연동] 단추를 클릭해 연동 가이드를 다시 점검해 주시기 바랍니다.
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              <div className="w-full flex items-center justify-between px-4 py-2 bg-white/60 border border-white/80 rounded-2xl text-xs shadow-sm">
+                <div className="flex items-center gap-2">
+                  <span className={"w-2.5 h-2.5 rounded-full " + (isSyncing ? "bg-amber-400 animate-ping" : (isSheetUrlValid && !googleAuthError ? "bg-emerald-500 animate-pulse" : (googleAuthError ? "bg-amber-500 animate-bounce" : "bg-slate-400")))}></span>
+                  <span className="font-semibold text-slate-700">
+                    {isSheetUrlValid && !googleAuthError ? "구글 시트 실시간 동기화 중" : (googleAuthError ? "스프레드시트 연동 대기 (오류 발생)" : "로컬 데모 보드 작동 중 (보안 최상)")}
+                  </span>
+                </div>
+                <div className="flex items-center gap-3 text-slate-500">
+                  <span>동기화: {lastSyncTime ? lastSyncTime.toLocaleTimeString() : '없음'}</span>
+                  <button 
+                    onClick={() => fetchTracksFromSheet(true)}
+                    disabled={isSyncing}
+                    className="p-1.5 hover:bg-sky-100 rounded-lg transition-colors flex items-center gap-1 font-bold text-sky-800"
+                    title="강제 새로고침"
+                  >
+                    <IconRefresh />
+                    <span>새로고침</span>
+                  </button>
+                  <button 
+                    onClick={() => {
+                      setSettingsInputUrl(sheetUrl);
+                      setShowSettingsModal(true);
+                    }}
+                    className="p-1.5 hover:bg-sky-100 rounded-lg transition-colors text-slate-600 flex items-center gap-1"
+                    title="설정"
+                  >
+                    <IconSettings />
+                    <span className="font-bold">시트 연동</span>
+                  </button>
+                </div>
               </div>
             </div>
 
@@ -1014,6 +964,11 @@ function doPost(e) {
               <p className="text-base md:text-lg text-sky-800/90 font-medium max-w-2xl mx-auto leading-relaxed">
                 가장 애정하는 여름 분위기의 음원을 적고 예쁘게 커버 아트를 직접 디자인해 올려주세요! 우리 반 친구들의 마음을 모아 아름다운 전광판을 완성합니다.
               </p>
+              
+              {/* Deletion protection safety warning badge */}
+              <div className="inline-flex items-center gap-1.5 mt-4 px-3 py-1 rounded-xl bg-teal-50 border border-teal-200 text-teal-800 text-[11px] font-bold">
+                🔒 삭제 보호 시스템 가동 중: 등록된 곡의 수정 및 삭제는 선생님의 스프레드시트 원본 수정을 통해서만 가능합니다.
+              </div>
             </div>
           </header>
 
@@ -1337,7 +1292,7 @@ function doPost(e) {
               </form>
             </section>
 
-            {/* Right Box - Combined Playlist */}
+            {/* Right Box - Combined Playlist (No delete UI on cards) */}
             <section className="lg:col-span-7 space-y-6" id="class-board-section">
               
               {/* Active Player UI */}
@@ -1461,7 +1416,7 @@ function doPost(e) {
                 </div>
               )}
 
-              {/* Combined Grid of Tracks */}
+              {/* Combined Grid of Tracks (No delete/trash button is rendered inside) */}
               <div className="glass-card rounded-3xl p-6 shadow-lg border border-white">
                 <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
                   <div>
@@ -1550,7 +1505,7 @@ function doPost(e) {
                             <p className="text-slate-500 text-xs font-semibold truncate">{track.artist}</p>
                           </div>
 
-                          {/* Hover action panels */}
+                          {/* Action panel (Only share card left, Delete button is strictly removed for safety) */}
                           <div className="absolute top-2 right-2 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                             <button
                               type="button"
@@ -1563,17 +1518,6 @@ function doPost(e) {
                               title="미술 활동지 카드 저장하기"
                             >
                               <IconShare />
-                            </button>
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setConfirmDeleteId(track.id);
-                              }}
-                              className="p-1.5 rounded-lg bg-white/95 hover:bg-rose-100 text-rose-600 transition-colors shadow-sm"
-                              title="트랙 삭제"
-                            >
-                              <IconTrash />
                             </button>
                           </div>
                         </div>
