@@ -339,8 +339,6 @@ function doPost(e) {
           setCurrentTime(0);
           
           try {
-            // [개선 사항] 사용자가 등록할 때 유튜브 주소뿐 아니라 직접 오디오 주소를 넣거나 유튜브를 올릴 수 있으므로,
-            // 최대한 사이트 내부에서 소리(음악)가 즉시 재생되도록 iTunes 음원 소스를 찾아 연결합니다.
             const searchKeyword = nowPlaying.artist + " " + nowPlaying.title;
             const res = await fetch("https://itunes.apple.com/search?term=" + encodeURIComponent(searchKeyword) + "&limit=1&entity=song");
             const data = await res.json();
@@ -350,7 +348,6 @@ function doPost(e) {
               setAudioUrl(track.previewUrl);
               setIsPlaying(true); 
             } else {
-              // 찾지 못할 경우 대체 가상 오디오 템플릿 재생 (사용자 편의)
               setAudioUrl('');
               setAudioError(true);
               setIsPlaying(true); 
@@ -697,6 +694,15 @@ function doPost(e) {
         }
       };
 
+      // [수정] handleSaveSettings 함수를 App 컴포넌트 내부 영역으로 올바르게 정렬 배치했습니다.
+      const handleSaveSettings = (e) => {
+        e.preventDefault();
+        const trimmed = settingsInputUrl.trim();
+        setSheetUrl(trimmed);
+        localStorage.setItem('summer_playlist_sheet_url', trimmed);
+        setShowSettingsModal(false);
+      };
+
       const isSheetUrlValid = sheetUrl && sheetUrl.trim().startsWith("http");
 
       return (
@@ -715,12 +721,14 @@ function doPost(e) {
                 </div>
                 <div className="flex gap-2">
                   <button 
+                    type="button"
                     onClick={() => setConfirmDeleteId(null)}
                     className="flex-1 py-2.5 rounded-xl bg-slate-100 text-slate-700 text-sm font-semibold hover:bg-slate-200 transition-colors"
                   >
                     취소
                   </button>
                   <button 
+                    type="button"
                     onClick={executeDeleteTrack}
                     className="flex-1 py-2.5 rounded-xl bg-rose-500 text-white text-sm font-semibold hover:bg-rose-600 transition-colors"
                   >
@@ -837,6 +845,7 @@ function doPost(e) {
 
                 <div className="flex justify-end pt-3 border-t border-slate-100">
                   <button 
+                    type="button"
                     onClick={() => {
                       setShowGuideModal(false);
                       setShowSettingsModal(true);
@@ -1274,9 +1283,10 @@ function doPost(e) {
                       <IconListMusic />
                       우리 반의 여름 바다 공동 플레이보드 ({tracks.length}곡)
                     </h3>
-                    <p className="text-slate-500 text-xs md:text-sm mt-0.5">원하는 앨범 카드를 터치하면 외부 새 창을 띄우지 않고 내부 오디오로 음악이 재생됩니다.</p>
+                    <p className="text-slate-500 text-xs md:text-sm mt-0.5">원하는 앨범 카드를 가볍게 터치하면 외부 새 창을 띄우지 않고 내부 오디오로 음악이 재생됩니다.</p>
                   </div>
                   <button 
+                    type="button"
                     onClick={() => {
                       if (tracks.length > 0) {
                         handlePlayTrack(tracks[Math.floor(Math.random() * tracks.length)]);
@@ -1344,7 +1354,6 @@ function doPost(e) {
                               {track.studentName}
                             </span>
                             
-                            {/* [수정] 이제 제목을 클릭해도 새 창으로 유실되지 않고 내부에서 안전하게 오디오만 감상합니다. */}
                             <h4 
                               className="text-base font-bold text-sky-950 truncate mt-1 hover:text-sky-600 transition-colors flex items-center gap-1"
                               title={track.title}
@@ -1358,6 +1367,7 @@ function doPost(e) {
                           {/* Hover action panels */}
                           <div className="absolute top-2 right-2 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                             <button
+                              type="button"
                               onClick={(e) => {
                                 e.stopPropagation();
                                 handlePlayTrack(track);
@@ -1369,6 +1379,7 @@ function doPost(e) {
                               <IconShare />
                             </button>
                             <button
+                              type="button"
                               onClick={(e) => {
                                 e.stopPropagation();
                                 setConfirmDeleteId(track.id);
@@ -1396,6 +1407,7 @@ function doPost(e) {
                 <div className="bg-sky-100 px-5 py-3 border-b border-sky-200 flex items-center justify-between text-sky-950 font-bold">
                   <span className="text-sm">여름 미술활동지 이미지 저장</span>
                   <button 
+                    type="button"
                     onClick={() => setShowDetailModal(false)}
                     className="hover:bg-sky-200 rounded-lg p-1 text-slate-500 font-bold text-lg"
                   >
@@ -1463,6 +1475,7 @@ function doPost(e) {
 
                 <div className="bg-sky-50 px-5 py-4 border-t border-sky-200 flex flex-col gap-2">
                   <button
+                    type="button"
                     onClick={() => handleExportCard("printable-card-" + nowPlaying.id)}
                     className="w-full bg-sky-600 hover:bg-sky-700 text-white font-bold py-3 rounded-xl shadow-md transition-colors flex items-center justify-center gap-2"
                   >
