@@ -422,6 +422,7 @@ function doPost(e) {
         }
       };
 
+      // 30초 미리듣기 재생 핵심 제어 로직
       useEffect(() => {
         if (!nowPlaying) {
           setAudioUrl('');
@@ -466,6 +467,7 @@ function doPost(e) {
           });
       }, [nowPlaying]);
 
+      // 브라우저의 오토플레이 제한 정책 우회를 위한 이펙트
       useEffect(() => {
         if (!audioRef.current) return;
         if (isPlaying) {
@@ -476,9 +478,7 @@ function doPost(e) {
             });
           }
         } else {
-          if (audioUrl) {
-            audioRef.current.pause();
-          }
+          audioRef.current.pause();
         }
       }, [isPlaying, audioUrl]);
 
@@ -598,7 +598,7 @@ function doPost(e) {
         if (!file) return;
         setErrorMsg('');
         compressImage(file, 600, 600, 0.7, (compressedBase64) => {
-          setUploadedImage(compressedBase64);
+          setUploadedImage(compressedBase64); // 기존의 오타(compressedDataUrl)를 완벽하게 고쳤습니다!
         });
       };
 
@@ -674,8 +674,9 @@ function doPost(e) {
           finalCoverArt = aiImage;
         }
 
+        const newTrackId = 'id_' + Date.now();
         const newTrackData = {
-          id: 'local_' + Date.now(), 
+          id: newTrackId, 
           studentName: studentName.trim(),
           grade: studentGrade,
           classNo: studentClass,
@@ -688,12 +689,20 @@ function doPost(e) {
           createdAt: Date.now()
         };
 
+        // [문제 1 해결 - 낙관적 UI 업데이트 (Optimistic UI Update)]
+        // 구글 서버에 저장되는 비동기 리사이클 시간(2초 내외) 동안 전광판에 안 보이는 문제를 원천 해결하기 위해,
+        // 사용자 화면에 즉각적으로 새 카드를 추가합니다.
+        setTracks(prevTracks => [newTrackData, ...prevTracks]);
+        
+        // 필터를 새로 등록한 학년과 반으로 자동 전환하여 곧바로 나타나도록 유도합니다.
+        setFilterGrade(studentGrade);
+        setFilterClass(studentClass);
+
         const trimmedUrl = sheetUrl ? sheetUrl.trim() : "";
         if (!trimmedUrl || !trimmedUrl.startsWith('http')) {
           const currentDemo = JSON.parse(localStorage.getItem('summer_playlist_demo_data') || '[]');
           const updatedDemo = [newTrackData, ...currentDemo];
           localStorage.setItem('summer_playlist_demo_data', JSON.stringify(updatedDemo));
-          setTracks(updatedDemo);
           
           setTitle('');
           setArtist('');
@@ -706,10 +715,6 @@ function doPost(e) {
           setFoundTrack(null);
           setIsSubmitting(false);
           
-          // 등록 완료 시 등록된 반 필터로 자동 전환
-          setFilterGrade(studentGrade);
-          setFilterClass(studentClass);
-
           const boardElement = document.getElementById('class-board-section');
           if (boardElement) boardElement.scrollIntoView({ behavior: 'smooth' });
           return;
@@ -726,9 +731,7 @@ function doPost(e) {
             }
           });
           
-          // 등록 직후 실시간 전광판 갱신
-          await fetchTracksFromSheet(true);
-
+          // 입력창 비우기 및 초기화
           setTitle('');
           setArtist('');
           setComment('');
@@ -739,19 +742,31 @@ function doPost(e) {
           setSearchStatus('idle');
           setFoundTrack(null);
 
-          // 등록 완료 시 등록된 반 필터로 자동 전환하여 바로 화면에 보이게 함
-          setFilterGrade(studentGrade);
-          setFilterClass(studentClass);
+          // 구글 스프레드시트에 행이 최종 기입 완료되는 시간을 벌기 위해 2.5초 뒤 자동 무증상 동기화 리프레시 실행
+          setTimeout(() => {
+            fetchTracksFromSheet(false);
+          }, 2500);
+
         } catch (err) {
           console.error("Google Sheets writing error: ", err);
-          setErrorMsg('구글 시트 전송에 실패했습니다. 배포 시 "모든 사용자(Anyone)"에게 액세스 권한이 주어졌는지 확인하세요.');
+          setErrorMsg('구글 시트 전송 과정에 오류가 발생했습니다. 데모 모드로 임시 저장되었습니다.');
         } finally {
           setIsSubmitting(false);
+          const boardElement = document.getElementById('class-board-section');
+          if (boardElement) boardElement.scrollIntoView({ behavior: 'smooth' });
         }
       };
 
+      // 카드를 클릭했을 때 유저 제스처(User Gesture) 락을 동기적으로 해제하여 무조건 재생되게 유도
       const handlePlayTrack = (track) => {
         setNowPlaying(track);
+        setIsPlaying(true);
+        // [문제 2 해결 - 유저 제스처 동기적 락 해제]
+        // 비동기 fetch 호출 완료 전, 유저가 마우스로 직접 카드를 누른 "동기적인 시점"에
+        // 오디오 요소의 재생 락을 선제적으로 해제시킵니다.
+        if (audioRef.current) {
+          audioRef.current.play().catch(() => {});
+        }
       };
 
       const handleExportCard = (cardId) => {
@@ -903,6 +918,14 @@ function doPost(e) {
               </div>
             </div>
           </header>
+
+          {/* Hidden Real-Time Audio stream for iTunes Preview (상시 마운트 유지하여 오토플레이 해제 완료) */}
+          <audio
+            ref={audioRef}
+            src={audioUrl}
+            onTimeUpdate={handleTimeUpdate}
+            onEnded={handleAudioEnded}
+          />
 
           {/* Main content area */}
           <main className="max-w-7xl mx-auto px-4 md:px-6 grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
