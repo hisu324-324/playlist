@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>우리 반 여름 플레이리스트 🌊</title>
+  <title>우리 학교 여름 플레이리스트 🌊</title>
   
   <!-- Tailwind CSS CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
@@ -62,68 +62,11 @@
   <script type="text/babel">
     const { useState, useEffect, useRef } = React;
 
-    // ==========================================
-    // 💡여기에 생성하신 구글 앱스 스크립트 웹앱 배포 URL을 기입해 주세요!
-    // ==========================================
-    const DEFAULT_SHEET_API_URL = ""; 
-
-    // --- Google Apps Script Guide Code defined as safe string constant ---
-    // [CORS 및 구문 오류 전면 개정 완료] Apps Script에서 지원하지 않는 .setHeader() 호출을 완전히 제거하였습니다.
-    const APPS_SCRIPT_CODE = `function doGet(e) {
-  var ss = SpreadsheetApp.getActiveSpreadsheet();
-  if (!ss) {
-    return ContentService.createTextOutput(JSON.stringify({
-      error: "오류: 스프레드시트 내부에서 [확장 프로그램] -> [Apps Script]로 만든 스크립트가 아닙니다. 반드시 스프레드시트 창 안에서 생성해 주세요!"
-    })).setMimeType(ContentService.MimeType.JSON);
-  }
-  
-  var sheet = ss.getSheets()[0]; // 무조건 첫 번째 탭 고정
-  var data = sheet.getDataRange().getValues();
-  var rows = [];
-  
-  if (data.length <= 1) {
-    return ContentService.createTextOutput(JSON.stringify([]))
-      .setMimeType(ContentService.MimeType.JSON);
-  }
-
-  for (var i = 1; i < data.length; i++) {
-    rows.push({
-      id: String(data[i][7] || data[i][6] || "id_" + i), 
-      studentName: String(data[i][0] || ""),
-      title: String(data[i][1] || ""),
-      artist: String(data[i][2] || ""),
-      comment: String(data[i][3] || ""),
-      coverType: String(data[i][4] || "preset"),
-      coverArt: String(data[i][5] || ""),
-      createdAt: Number(data[i][6] || Date.now()),
-      youtubeUrl: String(data[i][8] || "")
-    });
-  }
-  return ContentService.createTextOutput(JSON.stringify(rows))
-    .setMimeType(ContentService.MimeType.JSON);
-}
-
-function doPost(e) {
-  var ss = SpreadsheetApp.getActiveSpreadsheet();
-  var sheet = ss.getSheets()[0];
-  var postData = JSON.parse(e.postData.contents);
-  var ts = Date.now();
-  
-  sheet.appendRow([
-    postData.studentName,
-    postData.title,
-    postData.artist,
-    postData.comment,
-    postData.coverType,
-    postData.coverArt,
-    ts,
-    postData.id || ('id_' + ts),
-    postData.youtubeUrl || ""
-  ]);
-  
-  return ContentService.createTextOutput(JSON.stringify({status: "success"}))
-    .setMimeType(ContentService.MimeType.JSON);
-}`;
+    // =========================================================================
+    // 💡여기에 생성하신 구글 앱스 스크립트 웹앱 배포 URL(반드시 끝이 /exec로 끝나는 주소)을 입력해 주세요!
+    // 이제 코드 자체에 고정되어 학생들이나 외부 사용자가 주소를 임의로 바꿀 수 없습니다.
+    // =========================================================================
+    const DEFAULT_SHEET_API_URL = "https://script.google.com/macros/s/AKfycbzfDtZe-dgNv139gLEC1UGOeIBNnF65Q5n46skLr-zm81L58b8F7if_uNrEDZLLsGFo/exec"; 
 
     const SUMMER_PRESETS = [
       {
@@ -204,21 +147,16 @@ function doPost(e) {
     const IconSearch = () => (
       <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"></circle><path d="M21 21l-4.35-4.35"></path></svg>
     );
-    const IconSettings = () => (
-      <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><circle cx="12" cy="12" r="3"></circle></svg>
-    );
-    const IconHelp = () => (
-      <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"></circle><path d="M9.09 9a3 3 0 015.83 1c0 2-3 3-3 3m0 4h.01"></path></svg>
-    );
     const IconRefresh = () => (
       <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><path d="M4 4v5h.582m15.356 2A8.001 8.001 0 1121.27 15M20 20v-5h-.581"></path></svg>
     );
+    const IconYoutube = () => (
+      <svg className="w-5 h-5 text-red-500 fill-current" viewBox="0 0 24 24"><path d="M23.498 6.163a3.003 3.003 0 00-2.11-2.11C19.517 3.545 12 3.545 12 3.545s-7.517 0-9.388.508a3.003 3.003 0 00-2.11 2.11C0 8.033 0 12 0 12s0 3.967.502 5.837a3.003 3.003 0 002.11 2.11c1.871.508 9.388.508 9.388.508s7.517 0 9.388-.508a3.002 3.003 0 002.11-2.11C24 15.967 24 12 24 12s0-3.967-.502-5.837zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/></svg>
+    );
 
     function App() {
-      const [sheetUrl, setSheetUrl] = useState(() => {
-        const stored = localStorage.getItem('summer_playlist_sheet_url');
-        return (stored && stored.trim() !== '') ? stored.trim() : (DEFAULT_SHEET_API_URL || '');
-      });
+      const sheetUrl = DEFAULT_SHEET_API_URL || '';
+      
       const [tracks, setTracks] = useState([]);
       const [loading, setLoading] = useState(true);
       const [lastSyncTime, setLastSyncTime] = useState(null);
@@ -229,20 +167,21 @@ function doPost(e) {
       
       // Form Input States
       const [studentName, setStudentName] = useState('');
+      const [studentGrade, setStudentGrade] = useState('1'); // 학년 (1~6)
+      const [studentClass, setStudentClass] = useState('1'); // 반 (1~4)
       const [title, setTitle] = useState('');
       const [artist, setArtist] = useState('');
       const [comment, setComment] = useState('');
       const [youtubeUrl, setYoutubeUrl] = useState('');
       
+      // Filter State for viewing
+      const [filterGrade, setFilterGrade] = useState('all'); // all or 1~6
+      const [filterClass, setFilterClass] = useState('all'); // all or 1~4
+
       // Pre-upload Verification Preview Player States
       const [searchStatus, setSearchStatus] = useState('idle'); // 'idle' | 'searching' | 'found' | 'not_found'
       const [foundTrack, setFoundTrack] = useState(null); // { title, artist, previewUrl, artworkUrl }
       const [isFormPreviewPlaying, setIsFormPreviewPlaying] = useState(false);
-
-      // Modals
-      const [showSettingsModal, setShowSettingsModal] = useState(false);
-      const [showGuideModal, setShowGuideModal] = useState(false);
-      const [settingsInputUrl, setSettingsInputUrl] = useState(sheetUrl);
       
       // Cover Art Selection Options
       const [coverType, setCoverType] = useState('preset'); 
@@ -310,7 +249,9 @@ function doPost(e) {
               youtubeUrl: String(item.youtubeUrl || ""),
               coverType: String(item.coverType || "preset"),
               coverArt: String(item.coverArt || ""),
-              createdAt: Number(item.createdAt || Date.now())
+              createdAt: Number(item.createdAt || Date.now()),
+              grade: String(item.grade || "1"),
+              classNo: String(item.classNo || "1")
             }));
             
             const sorted = sanitizedData.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
@@ -589,7 +530,7 @@ function doPost(e) {
         if (!file) return;
         setErrorMsg('');
         compressImage(file, 600, 600, 0.7, (compressedBase64) => {
-          setUploadedImage(compressedDataUrl);
+          setUploadedImage(compressedBase64);
         });
       };
 
@@ -668,6 +609,8 @@ function doPost(e) {
         const newTrackData = {
           id: 'local_' + Date.now(), 
           studentName: studentName.trim(),
+          grade: studentGrade,
+          classNo: studentClass,
           title: title.trim(),
           artist: artist.trim(),
           comment: comment.trim(),
@@ -695,6 +638,10 @@ function doPost(e) {
           setFoundTrack(null);
           setIsSubmitting(false);
           
+          // 등록 완료 시 등록된 반 필터로 자동 전환
+          setFilterGrade(studentGrade);
+          setFilterClass(studentClass);
+
           const boardElement = document.getElementById('class-board-section');
           if (boardElement) boardElement.scrollIntoView({ behavior: 'smooth' });
           return;
@@ -720,6 +667,10 @@ function doPost(e) {
           setAiImage('');
           setSearchStatus('idle');
           setFoundTrack(null);
+
+          // 등록 완료 시 등록된 반 필터로 자동 전환
+          setFilterGrade(studentGrade);
+          setFilterClass(studentClass);
         } catch (err) {
           console.error("Google Sheets writing error: ", err);
           setErrorMsg('구글 시트 전송에 실패했습니다. 배포 시 "모든 사용자(Anyone)"에게 액세스 권한이 주어졌는지 확인하세요.');
@@ -744,7 +695,7 @@ function doPost(e) {
             scale: 2 
           }).then(canvas => {
             const link = document.createElement('a');
-            link.download = "우리반_여름_플레이리스트_" + (nowPlaying?.studentName || "카드") + ".png";
+            link.download = `우리학교_여름_플레이리스트_${nowPlaying?.grade}학년_${nowPlaying?.classNo}반_${nowPlaying?.studentName || "카드"}.png`;
             link.href = canvas.toDataURL('image/png');
             link.click();
           }).catch(err => {
@@ -756,13 +707,12 @@ function doPost(e) {
         }
       };
 
-      const handleSaveSettings = (e) => {
-        e.preventDefault();
-        const trimmed = settingsInputUrl.trim();
-        setSheetUrl(trimmed);
-        localStorage.setItem('summer_playlist_sheet_url', trimmed);
-        setShowSettingsModal(false);
-      };
+      // 필터링된 트랙 리스트 계산
+      const filteredTracks = tracks.filter(track => {
+        const matchGrade = filterGrade === 'all' || String(track.grade) === filterGrade;
+        const matchClass = filterClass === 'all' || String(track.classNo) === filterClass;
+        return matchGrade && matchClass;
+      });
 
       const isSheetUrlValid = sheetUrl && sheetUrl.trim().startsWith("http");
 
@@ -778,127 +728,6 @@ function doPost(e) {
             />
           )}
 
-          {/* Settings Modal */}
-          {showSettingsModal && (
-            <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-              <form onSubmit={handleSaveSettings} className="bg-white rounded-2xl p-6 max-w-lg w-full shadow-2xl border border-sky-100 space-y-4">
-                <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-                  <h3 className="text-lg font-bold text-slate-900 flex items-center gap-2">
-                    <IconSettings />
-                    구글 스프레드시트 연동 설정
-                  </h3>
-                  <button type="button" onClick={() => setShowSettingsModal(false)} className="text-slate-400 hover:text-slate-600 font-bold">✕</button>
-                </div>
-                
-                <div className="space-y-3">
-                  <label className="block text-sm font-bold text-slate-800">구글 앱스 스크립트 웹앱 배포 URL</label>
-                  <input 
-                    type="url"
-                    placeholder="https://script.google.com/macros/s/.../exec"
-                    value={settingsInputUrl}
-                    onChange={(e) => setSettingsInputUrl(e.target.value)}
-                    className="w-full px-4 py-2.5 text-xs font-mono rounded-xl border border-slate-200 bg-slate-50 outline-none focus:ring-2 focus:ring-sky-500 focus:bg-white"
-                  />
-                  <p className="text-xs text-slate-500 leading-relaxed">
-                    구글 시트 연동 후 배포(Deploy)한 앱스 스크립트 웹앱 URL을 입력해 주세요. 
-                    미입력 시 브라우저 내부 임시 DB(데모 모드)로 실행됩니다.
-                  </p>
-                </div>
-
-                <div className="flex justify-between items-center gap-2 pt-3 border-t border-slate-100">
-                  <button 
-                    type="button" 
-                    onClick={() => {
-                      setShowSettingsModal(false);
-                      setShowGuideModal(true);
-                    }} 
-                    className="text-xs text-sky-600 hover:underline font-bold flex items-center gap-1"
-                  >
-                    <IconHelp /> 어떻게 만드나요? (설정 가이드)
-                  </button>
-                  <div className="flex gap-2">
-                    <button 
-                      type="button" 
-                      onClick={() => setShowSettingsModal(false)}
-                      className="px-4 py-2 rounded-xl bg-slate-100 text-slate-700 text-xs font-semibold hover:bg-slate-200"
-                    >
-                      닫기
-                    </button>
-                    <button 
-                      type="submit"
-                      className="px-4 py-2 rounded-xl bg-sky-600 text-white text-xs font-semibold hover:bg-sky-700 shadow-md"
-                    >
-                      저장하기
-                    </button>
-                  </div>
-                </div>
-              </form>
-            </div>
-          )}
-
-          {/* Setup Guide Modal */}
-          {showGuideModal && (
-            <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-              <div className="bg-white rounded-2xl p-6 max-w-2xl w-full max-h-[85vh] overflow-y-auto shadow-2xl border border-sky-100 space-y-4">
-                <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-                  <h3 className="text-lg font-bold text-slate-900 flex items-center gap-2">
-                    <IconHelp />
-                    구글 스프레드시트 연동 핵심 완벽 가이드
-                  </h3>
-                  <button type="button" onClick={() => setShowGuideModal(false)} className="text-slate-400 hover:text-slate-600 font-bold">✕</button>
-                </div>
-
-                <div className="space-y-4 text-xs md:text-sm text-slate-700 leading-relaxed">
-                  <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl space-y-1">
-                    <h4 className="font-bold text-rose-800 flex items-center gap-1">⚠️ 주의: 시트와 연결되지 않은 스크립트는 차단됩니다!</h4>
-                    <p className="text-xs leading-relaxed text-rose-700">
-                      구글 드라이브 홈화면에서 바로 독립형 스크립트를 생성하면 시트에 접근할 수 없어 연동에 실패합니다. 
-                      반드시 <strong>해당 구글 스프레드시트 화면 안에서 [확장 프로그램] ➔ [Apps Script]</strong>를 눌러야 연동이 보증됩니다.
-                    </p>
-                  </div>
-
-                  <div className="space-y-1">
-                    <h4 className="font-bold text-sky-800">1단계: 스프레드시트 안에서 에디터 열기</h4>
-                    <p>사용하실 구글 시트 상단 메뉴의 <strong>확장 프로그램(Extensions) ➔ Apps Script</strong>를 클릭합니다.</p>
-                  </div>
-
-                  <div className="space-y-1">
-                    <h4 className="font-bold text-sky-800">2단계: 아래 소스코드를 전체 덮어쓰기</h4>
-                    <p>기존에 쓰여 있던 코드 영역을 전부 지우고 하단의 핵심 연동 소스코드를 붙여넣은 뒤 저장(Ctrl+S)합니다.</p>
-                    <pre className="p-2.5 bg-slate-950 text-slate-200 rounded text-[10px] font-mono overflow-x-auto max-h-48 whitespace-pre">
-                      {APPS_SCRIPT_CODE}
-                    </pre>
-                  </div>
-
-                  <div className="space-y-1">
-                    <h4 className="font-bold text-sky-800">3단계: 웹앱으로 신규 배포하기</h4>
-                    <ul className="list-disc pl-4 space-y-1">
-                      <li>오른쪽 상단의 <strong>배포(Deploy) ➔ 새 배포(New Deployment)</strong>를 누릅니다.</li>
-                      <li>유형을 <strong>웹앱(Web app)</strong>으로 선택합니다.</li>
-                      <li><strong>다음 사용자로 실행</strong>: <span className="font-bold text-red-500">나(본인 구글 계정)</span> 설정.</li>
-                      <li><strong>액세스할 수 있는 사용자</strong>: 반드시 <span className="font-bold text-red-500">모든 사용자(Anyone)</span>로 지정.</li>
-                      <li>배포 버튼 클릭 후 구글 로그인 ➔ <strong>고급(Advanced) ➔ 안전하지 않은 이동</strong>을 눌러 권한을 전적으로 승인합니다.</li>
-                      <li>발행된 최종 웹앱 URL을 복사하여 연동 설정 창에 대입해 주시면 연동이 활성화됩니다!</li>
-                    </ul>
-                  </div>
-                </div>
-
-                <div className="flex justify-end pt-3 border-t border-slate-100">
-                  <button 
-                    type="button"
-                    onClick={() => {
-                      setShowGuideModal(false);
-                      setShowSettingsModal(true);
-                    }}
-                    className="px-5 py-2 rounded-xl bg-sky-600 text-white text-xs font-semibold hover:bg-sky-700"
-                  >
-                    이해했습니다 (URL 입력하러 가기)
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
-
           {/* Top Banner and Navigation Bar */}
           <header className="relative overflow-hidden pt-12 pb-8 text-center text-sky-950 px-4">
             <div className="absolute top-0 left-0 right-0 h-4 bg-sky-300 opacity-20"></div>
@@ -906,7 +735,7 @@ function doPost(e) {
             {/* Realtime diagnostic board */}
             <div className="max-w-4xl mx-auto flex flex-col gap-3.5 mb-6">
               
-              {/* Google API Auth Redirect Alert (진단 안내판) */}
+              {/* Google API Auth Redirect Alert */}
               {googleAuthError && (
                 <div className="p-4 bg-amber-50 border border-amber-200 rounded-2xl text-left flex items-start gap-3 shadow-md animate-pulse">
                   <span className="p-1 bg-amber-100 rounded-lg text-amber-600 shrink-0"><IconAlert /></span>
@@ -914,8 +743,7 @@ function doPost(e) {
                     <h4 className="font-bold text-sm text-amber-950">구글 로그인/권한 승인이 필요합니다!</h4>
                     <p>
                       입력하신 구글 웹앱에서 데이터를 차단하고 있습니다. 원인은 웹앱 배포 설정에서 <strong>'액세스할 수 있는 사용자(Who has access)'</strong>를 
-                      '모든 사용자(Anyone)'로 선택하지 않았거나, 구글 계정 권한 검토(고급 버튼을 눌러 승인)를 끝까지 마지않아 연동이 승인되지 않은 상황입니다. 
-                      우측의 [시트 연동] 단추를 클릭해 연동 가이드를 다시 점검해 주시기 바랍니다.
+                      '모든 사용자(Anyone)'로 선택하지 않았거나, 구글 계정 권한 검토를 끝까지 마치지 않아 연동이 승인되지 않은 상황입니다.
                     </p>
                   </div>
                 </div>
@@ -931,6 +759,7 @@ function doPost(e) {
                 <div className="flex items-center gap-3 text-slate-500">
                   <span>동기화: {lastSyncTime ? lastSyncTime.toLocaleTimeString() : '없음'}</span>
                   <button 
+                    type="button"
                     onClick={() => fetchTracksFromSheet(true)}
                     disabled={isSyncing}
                     className="p-1.5 hover:bg-sky-100 rounded-lg transition-colors flex items-center gap-1 font-bold text-sky-800"
@@ -939,30 +768,17 @@ function doPost(e) {
                     <IconRefresh />
                     <span>새로고침</span>
                   </button>
-                  <button 
-                    onClick={() => {
-                      setSettingsInputUrl(sheetUrl);
-                      setShowSettingsModal(true);
-                    }}
-                    className="p-1.5 hover:bg-sky-100 rounded-lg transition-colors text-slate-600 flex items-center gap-1"
-                    title="설정"
-                  >
-                    <IconSettings />
-                    <span className="font-bold">시트 연동</span>
-                  </button>
                 </div>
               </div>
             </div>
 
             <div className="max-w-4xl mx-auto relative z-10">
-              <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-sky-100/80 text-sky-700 font-semibold text-sm mb-4 border border-sky-200/50">
-                <span className="text-lg">🌊</span> [아티버셜 월간미술] 7월 여름플리 미술활동 연계
-              </div>
               <h1 className="text-4xl md:text-5xl lg:text-6xl font-extrabold tracking-tight mb-4 drop-shadow-sm text-sky-900">
-                우리 반 <span className="text-sky-600 underline decoration-wavy decoration-yellow-400">여름 플레이리스트</span>
+                우리 학교 <span className="text-sky-600 underline decoration-wavy decoration-yellow-400">여름 플레이리스트</span>
               </h1>
               <p className="text-base md:text-lg text-sky-800/90 font-medium max-w-2xl mx-auto leading-relaxed">
-                가장 애정하는 여름 분위기의 음원을 적고 예쁘게 커버 아트를 직접 디자인해 올려주세요! 우리 반 친구들의 마음을 모아 아름다운 전광판을 완성합니다.
+                학년과 반을 올바르게 선택하고 가장 애정하는 여름 음악을 담아주세요! 
+                친구들의 마음을 가득 담은 음악 전광판이 실시간 학급별로 모여 펼쳐집니다.
               </p>
               
               {/* Deletion protection safety warning badge */}
@@ -971,16 +787,6 @@ function doPost(e) {
               </div>
             </div>
           </header>
-
-          {/* Hidden Real-Time Audio stream for iTunes Preview Backup */}
-          {audioUrl && (
-            <audio
-              ref={audioRef}
-              src={audioUrl}
-              onTimeUpdate={handleTimeUpdate}
-              onEnded={handleAudioEnded}
-            />
-          )}
 
           {/* Main content area */}
           <main className="max-w-7xl mx-auto px-4 md:px-6 grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
@@ -997,6 +803,39 @@ function doPost(e) {
               </h2>
 
               <form onSubmit={handleSubmitTrack} className="space-y-5">
+                
+                {/* 학년 및 반 선택 */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-bold text-sky-950 mb-1.5">학년 선택</label>
+                    <select
+                      value={studentGrade}
+                      onChange={(e) => setStudentGrade(e.target.value)}
+                      className="w-full px-3 py-3 rounded-xl border border-sky-200 focus:ring-2 focus:ring-sky-400 focus:border-sky-400 outline-none text-slate-800 bg-white font-medium"
+                    >
+                      <option value="1">1학년</option>
+                      <option value="2">2학년</option>
+                      <option value="3">3학년</option>
+                      <option value="4">4학년</option>
+                      <option value="5">5학년</option>
+                      <option value="6">6학년</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-bold text-sky-950 mb-1.5">학급(반) 선택</label>
+                    <select
+                      value={studentClass}
+                      onChange={(e) => setStudentClass(e.target.value)}
+                      className="w-full px-3 py-3 rounded-xl border border-sky-200 focus:ring-2 focus:ring-sky-400 focus:border-sky-400 outline-none text-slate-800 bg-white font-medium"
+                    >
+                      <option value="1">1반</option>
+                      <option value="2">2반</option>
+                      <option value="3">3반</option>
+                      <option value="4">4반</option>
+                    </select>
+                  </div>
+                </div>
+
                 <div>
                   <label className="block text-sm font-bold text-sky-950 mb-1.5">추천하는 학생 이름</label>
                   <div className="relative">
@@ -1292,7 +1131,7 @@ function doPost(e) {
               </form>
             </section>
 
-            {/* Right Box - Combined Playlist (No delete UI on cards) */}
+            {/* Right Box - Combined Playlist */}
             <section className="lg:col-span-7 space-y-6" id="class-board-section">
               
               {/* Active Player UI */}
@@ -1356,7 +1195,9 @@ function doPost(e) {
                       <div className="flex flex-wrap items-center justify-center md:justify-start gap-2 mt-2">
                         <div className="flex items-center gap-1.5 bg-sky-900/60 px-3 py-1 rounded-full text-xs">
                           <span className="text-yellow-400">👤</span>
-                          <span className="text-slate-200">{nowPlaying.studentName} 학생 추천</span>
+                          <span className="text-slate-200">
+                            {nowPlaying.grade}학년 {nowPlaying.classNo}반 {nowPlaying.studentName} 학생 추천
+                          </span>
                         </div>
                       </div>
                     </div>
@@ -1416,46 +1257,104 @@ function doPost(e) {
                 </div>
               )}
 
-              {/* Combined Grid of Tracks (No delete/trash button is rendered inside) */}
+              {/* Combined Grid of Tracks */}
               <div className="glass-card rounded-3xl p-6 shadow-lg border border-white">
+                
+                {/* 학년/학급 필터 제어 패널 */}
+                <div className="bg-sky-100/40 p-4 rounded-2xl border border-sky-200/50 mb-6 space-y-3">
+                  <span className="text-xs font-bold text-sky-800 flex items-center gap-1">
+                    🔍 전광판 학급 필터 선택
+                  </span>
+                  
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-semibold text-slate-600 shrink-0">학년:</span>
+                      <div className="flex-1 grid grid-cols-7 gap-1">
+                        <button
+                          type="button"
+                          onClick={() => setFilterGrade('all')}
+                          className={`text-xs py-1.5 rounded-lg font-bold transition-all ${filterGrade === 'all' ? 'bg-sky-600 text-white shadow-sm' : 'bg-white hover:bg-sky-50 text-slate-600 border border-slate-200/60'}`}
+                        >
+                          전체
+                        </button>
+                        {['1', '2', '3', '4', '5', '6'].map(g => (
+                          <button
+                            key={g}
+                            type="button"
+                            onClick={() => setFilterGrade(g)}
+                            className={`text-xs py-1.5 rounded-lg font-bold transition-all ${filterGrade === g ? 'bg-sky-600 text-white shadow-sm' : 'bg-white hover:bg-sky-50 text-slate-600 border border-slate-200/60'}`}
+                          >
+                            {g}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-semibold text-slate-600 shrink-0">반:</span>
+                      <div className="flex-1 grid grid-cols-5 gap-1">
+                        <button
+                          type="button"
+                          onClick={() => setFilterClass('all')}
+                          className={`text-xs py-1.5 rounded-lg font-bold transition-all ${filterClass === 'all' ? 'bg-sky-600 text-white shadow-sm' : 'bg-white hover:bg-sky-50 text-slate-600 border border-slate-200/60'}`}
+                        >
+                          전체
+                        </button>
+                        {['1', '2', '3', '4'].map(c => (
+                          <button
+                            key={c}
+                            type="button"
+                            onClick={() => setFilterClass(c)}
+                            className={`text-xs py-1.5 rounded-lg font-bold transition-all ${filterClass === c ? 'bg-sky-600 text-white shadow-sm' : 'bg-white hover:bg-sky-50 text-slate-600 border border-slate-200/60'}`}
+                          >
+                            {c}반
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
                 <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
                   <div>
                     <h3 className="text-2xl font-bold text-sky-950 flex items-center gap-2">
                       <IconListMusic />
-                      우리 반의 여름 바다 공동 플레이보드 ({tracks.length}곡)
+                      플레이보드 감상전광판 ({filteredTracks.length}곡)
                     </h3>
-                    <p className="text-slate-500 text-xs md:text-sm mt-0.5">앨범 카드를 터치하면 실제 음악이 스피커로 아름답게 울려퍼집니다.</p>
+                    <p className="text-slate-500 text-xs md:text-sm mt-0.5">
+                      {filterGrade === 'all' ? '전체 학년' : `${filterGrade}학년`} {filterClass === 'all' ? '전체 학급' : `${filterClass}반`} 친구들의 카드입니다.
+                    </p>
                   </div>
                   <button 
                     type="button"
                     onClick={() => {
-                      if (tracks.length > 0) {
-                        handlePlayTrack(tracks[Math.floor(Math.random() * tracks.length)]);
+                      if (filteredTracks.length > 0) {
+                        handlePlayTrack(filteredTracks[Math.floor(Math.random() * filteredTracks.length)]);
                       }
                     }}
                     className="bg-sky-500 hover:bg-sky-600 text-white font-bold px-4 py-2 rounded-xl text-sm flex items-center gap-1.5 transition-colors self-end sm:self-auto shadow-sm"
                   >
                     <IconCompass />
-                    <span>랜덤 추천 재생</span>
+                    <span>학급 추천 랜덤재생</span>
                   </button>
                 </div>
 
                 {loading ? (
                   <div className="py-20 text-center space-y-3">
                     <div className="w-10 h-10 border-4 border-sky-400 border-t-transparent rounded-full animate-spin mx-auto"></div>
-                    <p className="text-slate-500 text-sm font-medium">우리 반 앨범 표지들을 불러오는 중입니다...</p>
+                    <p className="text-slate-500 text-sm font-medium">우리 학교 앨범 표지들을 불러오는 중입니다...</p>
                   </div>
-                ) : tracks.length === 0 ? (
+                ) : filteredTracks.length === 0 ? (
                   <div className="py-20 text-center max-w-md mx-auto">
                     <div className="text-5xl mb-4">🏖️</div>
-                    <h4 className="text-lg font-bold text-sky-950 mb-1">등록된 플레이리스트 카드가 없습니다.</h4>
+                    <h4 className="text-lg font-bold text-sky-950 mb-1">해당 학급의 연동된 카드가 없습니다.</h4>
                     <p className="text-slate-500 text-sm leading-relaxed">
-                      좌측의 활동지 등록 폼에서 첫 음원을 업로드하여 우리 반 보드를 가장 먼저 채워보세요!
+                      선택하신 학년/반에 첫 번째 여름 플레이리스트 카드를 멋지게 등재해 주시거나 다른 학급을 선택해 주세요!
                     </p>
                   </div>
                 ) : (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-5" ref={playlistContainerRef}>
-                    {tracks.map((track) => {
+                    {filteredTracks.map((track) => {
                       const isTrackActive = nowPlaying?.id === track.id;
                       let parsedPreset = null;
                       if (track.coverType === 'preset') {
@@ -1492,7 +1391,7 @@ function doPost(e) {
 
                           <div className="flex-1 min-w-0 pr-4">
                             <span className="text-[10px] bg-sky-100 text-sky-700 font-bold px-2 py-0.5 rounded-full">
-                              {track.studentName}
+                              {track.grade}학년 {track.classNo}반 · {track.studentName}
                             </span>
                             
                             <h4 
@@ -1535,7 +1434,7 @@ function doPost(e) {
               <div className="bg-white rounded-3xl max-w-md w-full overflow-hidden shadow-2xl relative border-4 border-sky-200">
                 
                 <div className="bg-sky-100 px-5 py-3 border-b border-sky-200 flex items-center justify-between text-sky-950 font-bold">
-                  <span className="text-sm">여름 미술활동지 이미지 저장</span>
+                  <span className="text-sm">여름 플레이리스트 카드 소장</span>
                   <button 
                     type="button"
                     onClick={() => setShowDetailModal(false)}
@@ -1549,7 +1448,7 @@ function doPost(e) {
                   <div className="border-4 border-dashed border-sky-100 rounded-2xl p-5 text-center bg-sky-50/20 relative">
                     
                     <div className="text-sky-950 mb-4 select-none">
-                      <div className="text-xs font-bold tracking-wider text-sky-600">아티버셜 월간미술 7월 여름 테마</div>
+                      <div className="text-xs font-bold tracking-wider text-sky-600">행복한 여름 음악 시간</div>
                       <h3 className="text-2xl font-black mt-0.5 tracking-tight">나의 여름 플레이리스트</h3>
                       <div className="w-16 h-1 bg-yellow-400 mx-auto mt-1 rounded-full"></div>
                     </div>
@@ -1581,8 +1480,8 @@ function doPost(e) {
                         <span className="text-base font-bold text-slate-700">{nowPlaying.artist}</span>
                       </div>
                       <div className="border-b-2 border-dashed border-sky-200 pb-1">
-                        <span className="text-xs font-bold text-sky-600 block">만든 사람</span>
-                        <span className="text-base font-extrabold text-slate-800">{nowPlaying.studentName}</span>
+                        <span className="text-xs font-bold text-sky-600 block">소속 및 이름</span>
+                        <span className="text-base font-extrabold text-slate-800">{nowPlaying.grade}학년 {nowPlaying.classNo}반 · {nowPlaying.studentName}</span>
                       </div>
                       {nowPlaying.comment && (
                         <div className="bg-white/80 p-2.5 rounded-lg border border-sky-100 text-xs italic text-slate-600">
@@ -1623,8 +1522,8 @@ function doPost(e) {
 
           {/* Footer copyright info */}
           <footer className="mt-20 border-t border-sky-200/50 pt-8 text-center text-xs text-sky-800/60 max-w-3xl mx-auto px-4">
-            <p className="font-semibold mb-1">우리 반 여름 플레이리스트 소통 공간</p>
-            <p>[아티버셜 월간미술] 7월 여름플리 활동지.pdf 연계 보조 프로그램</p>
+            <p className="font-semibold mb-1">우리 학교 여름 플레이리스트 소통 공간</p>
+            <p>교내 교육 활동 지원용 플레이보드 공유 프로그램</p>
           </footer>
 
         </div>
