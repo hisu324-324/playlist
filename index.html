@@ -68,6 +68,68 @@
     // =========================================================================
     const DEFAULT_SHEET_API_URL = "https://script.google.com/macros/s/AKfycbzfDtZe-dgNv139gLEC1UGOeIBNnF65Q5n46skLr-zm81L58b8F7if_uNrEDZLLsGFo/exec"; 
 
+    // --- Google Apps Script Guide Code defined as safe string constant ---
+    // [학년 및 학반 컬럼 연동 보강 완료] 10번째(J열: 학년)와 11번째(K열: 반) 정보까지 빈틈없이 쓰고 읽도록 개편했습니다.
+    const APPS_SCRIPT_CODE = `function doGet(e) {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  if (!ss) {
+    return ContentService.createTextOutput(JSON.stringify({
+      error: "오류: 스프레드시트 내부에서 [확장 프로그램] -> [Apps Script]로 만든 스크립트가 아닙니다. 반드시 스프레드시트 창 안에서 생성해 주세요!"
+    })).setMimeType(ContentService.MimeType.JSON);
+  }
+  
+  var sheet = ss.getSheets()[0]; // 무조건 첫 번째 탭 고정
+  var data = sheet.getDataRange().getValues();
+  var rows = [];
+  
+  if (data.length <= 1) {
+    return ContentService.createTextOutput(JSON.stringify([]))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+
+  for (var i = 1; i < data.length; i++) {
+    rows.push({
+      id: String(data[i][7] || data[i][6] || "id_" + i), 
+      studentName: String(data[i][0] || ""),
+      title: String(data[i][1] || ""),
+      artist: String(data[i][2] || ""),
+      comment: String(data[i][3] || ""),
+      coverType: String(data[i][4] || "preset"),
+      coverArt: String(data[i][5] || ""),
+      createdAt: Number(data[i][6] || Date.now()),
+      youtubeUrl: String(data[i][8] || ""),
+      grade: String(data[i][9] || "1"), // 10번째 열 (J열) 학년 정보 로딩
+      classNo: String(data[i][10] || "1") // 11번째 열 (K열) 반 정보 로딩
+    });
+  }
+  return ContentService.createTextOutput(JSON.stringify(rows))
+    .setMimeType(ContentService.MimeType.JSON);
+}
+
+function doPost(e) {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getSheets()[0];
+  var postData = JSON.parse(e.postData.contents);
+  var ts = Date.now();
+  
+  sheet.appendRow([
+    postData.studentName,
+    postData.title,
+    postData.artist,
+    postData.comment,
+    postData.coverType,
+    postData.coverArt,
+    ts,
+    postData.id || ('id_' + ts),
+    postData.youtubeUrl || "",
+    postData.grade || "1",  // 10번째 열 (J열)에 학년 안전 기록
+    postData.classNo || "1"  // 11번째 열 (K열)에 반 안전 기록
+  ]);
+  
+  return ContentService.createTextOutput(JSON.stringify({status: "success"}))
+    .setMimeType(ContentService.MimeType.JSON);
+}`;
+
     const SUMMER_PRESETS = [
       {
         name: "시원한 파도와 모래사장",
@@ -153,6 +215,9 @@
     const IconYoutube = () => (
       <svg className="w-5 h-5 text-red-500 fill-current" viewBox="0 0 24 24"><path d="M23.498 6.163a3.003 3.003 0 00-2.11-2.11C19.517 3.545 12 3.545 12 3.545s-7.517 0-9.388.508a3.003 3.003 0 00-2.11 2.11C0 8.033 0 12 0 12s0 3.967.502 5.837a3.003 3.003 0 002.11 2.11c1.871.508 9.388.508 9.388.508s7.517 0 9.388-.508a3.002 3.003 0 002.11-2.11C24 15.967 24 12 24 12s0-3.967-.502-5.837zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/></svg>
     );
+    const IconQrCode = () => (
+      <svg className="w-4 h-4 text-sky-800" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><path d="M4 4h4v4H4zm12 0h4v4h-4zM4 16h4v4H4zm12 0h4v4h-4zM9 9h6v6H9z" /></svg>
+    );
 
     function App() {
       const sheetUrl = DEFAULT_SHEET_API_URL || '';
@@ -182,6 +247,9 @@
       const [searchStatus, setSearchStatus] = useState('idle'); // 'idle' | 'searching' | 'found' | 'not_found'
       const [foundTrack, setFoundTrack] = useState(null); // { title, artist, previewUrl, artworkUrl }
       const [isFormPreviewPlaying, setIsFormPreviewPlaying] = useState(false);
+      
+      // QR Code Modal State
+      const [showQrModal, setShowQrModal] = useState(false);
       
       // Cover Art Selection Options
       const [coverType, setCoverType] = useState('preset'); 
@@ -648,14 +716,17 @@
         }
 
         try {
+          // [해결책] mode: 'no-cors'를 적용하여 구글 리다이렉트 시 브라우저 CORS 차단을 방지합니다.
           await fetch(trimmedUrl, {
             method: 'POST',
+            mode: 'no-cors', 
             body: JSON.stringify(newTrackData),
             headers: {
               'Content-Type': 'text/plain;charset=utf-8'
             }
           });
           
+          // 등록 직후 실시간 전광판 갱신
           await fetchTracksFromSheet(true);
 
           setTitle('');
@@ -668,7 +739,7 @@
           setSearchStatus('idle');
           setFoundTrack(null);
 
-          // 등록 완료 시 등록된 반 필터로 자동 전환
+          // 등록 완료 시 등록된 반 필터로 자동 전환하여 바로 화면에 보이게 함
           setFilterGrade(studentGrade);
           setFilterClass(studentClass);
         } catch (err) {
@@ -728,6 +799,42 @@
             />
           )}
 
+          {/* QR Code Scan Modal */}
+          {showQrModal && (
+            <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setShowQrModal(false)}>
+              <div className="bg-white rounded-2xl p-6 max-w-sm w-full shadow-2xl border border-sky-100 text-center space-y-4" onClick={(e) => e.stopPropagation()}>
+                <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+                  <h3 className="text-lg font-bold text-slate-900">우리 학교 QR코드 스캔</h3>
+                  <button type="button" onClick={() => setShowQrModal(false)} className="text-slate-400 hover:text-slate-600 font-bold">✕</button>
+                </div>
+                <p className="text-xs text-slate-500 leading-relaxed">
+                  학생들이 모바일 스마트폰이나 태블릿 카메라로 아래 QR코드를 스캔하면 이 플레이리스트 공간으로 바로 손쉽게 접속할 수 있습니다.
+                </p>
+                <div className="bg-slate-50 p-4 rounded-xl flex justify-center items-center">
+                  <img
+                    src={"https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=" + encodeURIComponent(window.location.href)}
+                    alt="접속용 QR코드"
+                    className="w-48 h-48 border-2 border-white shadow-sm rounded-lg"
+                    onError={(e) => {
+                      e.target.onerror = null;
+                      e.target.src = "https://placehold.co/200?text=QR+Code+Error";
+                    }}
+                  />
+                </div>
+                <div className="text-[10px] text-slate-400 select-all font-mono break-all bg-slate-50 p-2.5 rounded-lg border border-slate-100/60 max-h-16 overflow-y-auto">
+                  {window.location.href}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowQrModal(false)}
+                  className="w-full py-2.5 rounded-xl bg-sky-600 hover:bg-sky-700 text-white text-sm font-semibold transition-colors shadow-sm"
+                >
+                  닫기
+                </button>
+              </div>
+            </div>
+          )}
+
           {/* Top Banner and Navigation Bar */}
           <header className="relative overflow-hidden pt-12 pb-8 text-center text-sky-950 px-4">
             <div className="absolute top-0 left-0 right-0 h-4 bg-sky-300 opacity-20"></div>
@@ -756,7 +863,7 @@
                     {isSheetUrlValid && !googleAuthError ? "구글 시트 실시간 동기화 중" : (googleAuthError ? "스프레드시트 연동 대기 (오류 발생)" : "로컬 데모 보드 작동 중 (보안 최상)")}
                   </span>
                 </div>
-                <div className="flex items-center gap-3 text-slate-500">
+                <div className="flex items-center gap-2 text-slate-500">
                   <span>동기화: {lastSyncTime ? lastSyncTime.toLocaleTimeString() : '없음'}</span>
                   <button 
                     type="button"
@@ -767,6 +874,15 @@
                   >
                     <IconRefresh />
                     <span>새로고침</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setShowQrModal(true)}
+                    className="p-1.5 hover:bg-sky-100 rounded-lg transition-colors flex items-center gap-1 font-bold text-sky-800"
+                    title="접속 QR코드 보기"
+                  >
+                    <IconQrCode />
+                    <span>QR 코드</span>
                   </button>
                 </div>
               </div>
@@ -1332,7 +1448,7 @@
                         handlePlayTrack(filteredTracks[Math.floor(Math.random() * filteredTracks.length)]);
                       }
                     }}
-                    className="bg-sky-500 hover:bg-sky-600 text-white font-bold px-4 py-2 rounded-xl text-sm flex items-center gap-1.5 transition-colors self-end sm:self-auto shadow-sm"
+                    className="bg-sky-500 hover:bg-sky-600 text-white font-bold px-4 py-2 rounded-xl text-sm flex items-center gap-1.5 transition-colors self-end sm:sm:self-auto shadow-sm"
                   >
                     <IconCompass />
                     <span>학급 추천 랜덤재생</span>
