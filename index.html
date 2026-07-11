@@ -58,40 +58,74 @@
   <!-- Babel Standalone to transpile JSX/ES6 in browser -->
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 
-  <!-- Firebase CDN Legacy Compatibility Scripts (Perfect for Standalone single files) -->
-  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
-
   <!-- Main Application Script -->
   <script type="text/babel">
     const { useState, useEffect, useRef } = React;
 
-    // --- Firebase Initialization with Multi-Environment Safe Mode ---
-    let firebaseConfig = {};
-    try {
-      if (typeof __firebase_config !== 'undefined') {
-        firebaseConfig = JSON.parse(__firebase_config);
-      } else {
-        // Fallback for local preview & sandboxed browser testing
-        firebaseConfig = {
-          apiKey: "mock-api-key",
-          authDomain: "mock-domain.firebaseapp.com",
-          projectId: "mock-project",
-          storageBucket: "mock-bucket",
-          messagingSenderId: "mock-sender",
-          appId: "mock-app-id"
-        };
-      }
-    } catch (e) {
-      console.warn("Firebase config parsing skipped. Using mockup fallback.");
-    }
+    // ==========================================
+    // 💡여기에 생성하신 구글 앱스 스크립트 웹앱 배포 URL을 기입해 주세요!
+    // ==========================================
+    const DEFAULT_SHEET_API_URL = ""; 
 
-    // Initialize Firebase Compat versions
-    const app = firebase.initializeApp(firebaseConfig);
-    const auth = firebase.auth(app);
-    const db = firebase.firestore(app);
-    const appId = typeof __app_id !== 'undefined' ? __app_id : 'summer-playlist-app';
+    // --- Google Apps Script Guide Code defined as safe string constant ---
+    const APPS_SCRIPT_CODE = `function doGet(e) {
+  var sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
+  var action = e.parameter.action;
+  
+  // 행 삭제 기능 처리
+  if (action === 'delete') {
+    var idToDelete = e.parameter.id;
+    var data = sheet.getDataRange().getValues();
+    for (var i = 1; i < data.length; i++) {
+      if (String(data[i][7] || data[i][6]) === idToDelete) {
+        sheet.deleteRow(i + 1);
+        break;
+      }
+    }
+    return ContentService.createTextOutput(JSON.stringify({status: "deleted"}))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+  
+  // 전체 읽기 기능
+  var data = sheet.getDataRange().getValues();
+  var rows = [];
+  for (var i = 1; i < data.length; i++) {
+    rows.push({
+      id: String(data[i][7] || data[i][6]), 
+      studentName: data[i][0],
+      title: data[i][1],
+      artist: data[i][2],
+      comment: data[i][3],
+      coverType: data[i][4],
+      coverArt: data[i][5],
+      createdAt: Number(data[i][6])
+    });
+  }
+  return ContentService.createTextOutput(JSON.stringify(rows))
+    .setMimeType(ContentService.MimeType.JSON)
+    .setHeader("Access-Control-Allow-Origin", "*");
+}
+
+function doPost(e) {
+  var sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
+  var postData = JSON.parse(e.postData.contents);
+  var ts = Date.now();
+  
+  sheet.appendRow([
+    postData.studentName,
+    postData.title,
+    postData.artist,
+    postData.comment,
+    postData.coverType,
+    postData.coverArt,
+    ts,
+    postData.id || ('id_' + ts)
+  ]);
+  
+  return ContentService.createTextOutput(JSON.stringify({status: "success"}))
+    .setMimeType(ContentService.MimeType.JSON)
+    .setHeader("Access-Control-Allow-Origin", "*");
+}`;
 
     const SUMMER_PRESETS = [
       {
@@ -176,11 +210,25 @@
     const IconExternal = () => (
       <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6m4-3h6v6m-11 5L21 3"></path></svg>
     );
+    const IconSettings = () => (
+      <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+    );
+    const IconHelp = () => (
+      <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"></circle><path d="M9.09 9a3 3 0 015.83 1c0 2-3 3-3 3m0 4h.01"></path></svg>
+    );
+    const IconRefresh = () => (
+      <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><path d="M4 4v5h.582m15.356 2A8.001 8.001 0 1121.27 15M20 20v-5h-.581"></path></svg>
+    );
 
     function App() {
-      const [userState, setUserState] = useState(null);
+      const [sheetUrl, setSheetUrl] = useState(() => {
+        const stored = localStorage.getItem('summer_playlist_sheet_url');
+        return (stored && stored.trim() !== '') ? stored.trim() : (DEFAULT_SHEET_API_URL || '');
+      });
       const [tracks, setTracks] = useState([]);
       const [loading, setLoading] = useState(true);
+      const [lastSyncTime, setLastSyncTime] = useState(null);
+      const [isSyncing, setIsSyncing] = useState(false);
       
       // Form Input States
       const [studentName, setStudentName] = useState('');
@@ -188,8 +236,11 @@
       const [artist, setArtist] = useState('');
       const [comment, setComment] = useState('');
       
-      // Custom Modal for confirmations instead of blocky alerts
+      // Modals
       const [confirmDeleteId, setConfirmDeleteId] = useState(null);
+      const [showSettingsModal, setShowSettingsModal] = useState(false);
+      const [showGuideModal, setShowGuideModal] = useState(false);
+      const [settingsInputUrl, setSettingsInputUrl] = useState(sheetUrl);
       
       // Cover Art Selection Options
       const [coverType, setCoverType] = useState('preset'); 
@@ -219,56 +270,51 @@
       const playlistContainerRef = useRef(null);
       const audioRef = useRef(null);
 
-      // Rule 3: Auth First on load
+      // --- Google Sheet Data Fetch ---
+      const fetchTracksFromSheet = async (showPulse = true) => {
+        const trimmedUrl = sheetUrl ? sheetUrl.trim() : "";
+        if (!trimmedUrl || !trimmedUrl.startsWith("http")) {
+          const localDemo = JSON.parse(localStorage.getItem('summer_playlist_demo_data') || '[]');
+          setTracks(localDemo);
+          setLoading(false);
+          setLastSyncTime(new Date());
+          return;
+        }
+
+        if (showPulse) setIsSyncing(true);
+        try {
+          const response = await fetch(trimmedUrl + "?t=" + Date.now());
+          if (!response.ok) throw new Error("네트워크 응답 오류");
+          const data = await response.json();
+          
+          if (Array.isArray(data)) {
+            const sorted = data.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+            setTracks(sorted);
+            localStorage.setItem('summer_playlist_demo_data', JSON.stringify(sorted));
+          }
+        } catch (err) {
+          console.warn("Google Sheets API 연동 대기 또는 일시적 오류: 로컬 데모 데이터를 유지합니다.");
+          const localDemo = JSON.parse(localStorage.getItem('summer_playlist_demo_data') || '[]');
+          setTracks(localDemo);
+        } finally {
+          setLoading(false);
+          setIsSyncing(false);
+          setLastSyncTime(new Date());
+        }
+      };
+
+      // 10-second automatic polling for real-time sync (Only if sheetUrl is valid)
       useEffect(() => {
-        const initAuth = async () => {
-          try {
-            if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-              await auth.signInWithCustomToken(__initial_auth_token);
-            } else {
-              await auth.signInAnonymously();
-            }
-          } catch (err) {
-            console.error("Firebase auth logic failed:", err);
+        fetchTracksFromSheet();
+        const interval = setInterval(() => {
+          const trimmedUrl = sheetUrl ? sheetUrl.trim() : "";
+          if (trimmedUrl && trimmedUrl.startsWith("http")) {
+            fetchTracksFromSheet(false);
           }
-        };
-        initAuth();
+        }, 10000); // 10 seconds
 
-        const unsubscribe = auth.onAuthStateChanged((usr) => {
-          if (usr) {
-            setUserState(usr);
-          }
-        });
-        return () => unsubscribe();
-      }, []);
-
-      // Realtime Database fetch
-      useEffect(() => {
-        if (!userState) return;
-
-        // Rule 1 & Rule 2: Strictly query on /artifacts/{appId}/public/data/playlist
-        const publicCollectionRef = db.collection('artifacts').doc(appId).collection('public').doc('data').collection('playlist');
-        
-        const unsubscribe = publicCollectionRef.onSnapshot(
-          (snapshot) => {
-            const loadedTracks = [];
-            snapshot.forEach((doc) => {
-              loadedTracks.push({ id: doc.id, ...doc.data() });
-            });
-            
-            // Client side sort (newest created timestamp on top)
-            loadedTracks.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
-            setTracks(loadedTracks);
-            setLoading(false);
-          },
-          (error) => {
-            console.error("Firestore database retrieve error: ", error);
-            setLoading(false);
-          }
-        );
-
-        return () => unsubscribe();
-      }, [userState]);
+        return () => clearInterval(interval);
+      }, [sheetUrl]);
 
       // Dynamic Audio API call on song change
       useEffect(() => {
@@ -287,8 +333,8 @@
           setCurrentTime(0);
           
           try {
-            const searchKeyword = `${nowPlaying.artist} ${nowPlaying.title}`;
-            const res = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(searchKeyword)}&limit=1&entity=song`);
+            const searchKeyword = nowPlaying.artist + " " + nowPlaying.title;
+            const res = await fetch("https://itunes.apple.com/search?term=" + encodeURIComponent(searchKeyword) + "&limit=1&entity=song");
             const data = await res.json();
             
             if (data.results && data.results.length > 0) {
@@ -298,7 +344,7 @@
             } else {
               setAudioUrl('');
               setAudioError(true);
-              setIsPlaying(true); // fall back to visually playing representation
+              setIsPlaying(true); 
             }
           } catch (err) {
             console.error("Music streaming lookup failed: ", err);
@@ -391,7 +437,7 @@
         if (isNaN(timeInSecs)) return "00:00";
         const mins = Math.floor(timeInSecs / 60);
         const secs = Math.floor(timeInSecs % 60);
-        return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+        return mins.toString().padStart(2, '0') + ":" + secs.toString().padStart(2, '0');
       };
 
       // Quality optimization image compressor 
@@ -457,13 +503,13 @@
         setGeneratingAi(true);
 
         try {
-          const enhancedPrompt = `A stunning digital artwork of ${aiPrompt}, vibrant gorgeous summer color palette, retro album design, detailed landscape, vector flat style artwork, pristine beach look`;
+          const enhancedPrompt = "A stunning digital artwork of " + aiPrompt + ", vibrant gorgeous summer color palette, retro album design, detailed landscape, vector flat style artwork, pristine beach look";
           const payload = {
             instances: { prompt: enhancedPrompt },
             parameters: { sampleCount: 1 }
           };
           const apiKey = ""; 
-          const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/imagen-4.0-generate-001:predict?key=${apiKey}`;
+          const apiUrl = "https://generativelanguage.googleapis.com/v1beta/models/imagen-4.0-generate-001:predict?key=" + apiKey;
 
           const response = await fetch(apiUrl, {
             method: 'POST',
@@ -473,7 +519,7 @@
 
           const result = await response.json();
           if (result.predictions && result.predictions.length > 0 && result.predictions[0].bytesBase64Encoded) {
-            const imageUrl = `data:image/png;base64,${result.predictions[0].bytesBase64Encoded}`;
+            const imageUrl = "data:image/png;base64," + result.predictions[0].bytesBase64Encoded;
             setAiImage(imageUrl);
           } else {
             throw new Error('Image response structure is invalid.');
@@ -515,34 +561,60 @@
           finalCoverArt = aiImage;
         }
 
-        try {
-          const publicCollectionRef = db.collection('artifacts').doc(appId).collection('public').doc('data').collection('playlist');
-          await publicCollectionRef.add({
-            studentName: studentName.trim(),
-            title: title.trim(),
-            artist: artist.trim(),
-            comment: comment.trim(),
-            coverType,
-            coverArt: finalCoverArt,
-            createdAt: Date.now(),
-            creatorUid: userState?.uid || 'anonymous'
-          });
+        const newTrackData = {
+          id: 'local_' + Date.now(), 
+          studentName: studentName.trim(),
+          title: title.trim(),
+          artist: artist.trim(),
+          comment: comment.trim(),
+          coverType,
+          coverArt: finalCoverArt,
+          createdAt: Date.now()
+        };
 
-          // Clean up form inputs
+        const trimmedUrl = sheetUrl ? sheetUrl.trim() : "";
+        if (!trimmedUrl || !trimmedUrl.startsWith('http')) {
+          // Mode: Demo Local Storage Mode
+          const currentDemo = JSON.parse(localStorage.getItem('summer_playlist_demo_data') || '[]');
+          const updatedDemo = [newTrackData, ...currentDemo];
+          localStorage.setItem('summer_playlist_demo_data', JSON.stringify(updatedDemo));
+          setTracks(updatedDemo);
+          
           setTitle('');
           setArtist('');
           setComment('');
           setUploadedImage('');
           setAiPrompt('');
           setAiImage('');
+          setIsSubmitting(false);
           
           const boardElement = document.getElementById('class-board-section');
-          if (boardElement) {
-            boardElement.scrollIntoView({ behavior: 'smooth' });
-          }
+          if (boardElement) boardElement.scrollIntoView({ behavior: 'smooth' });
+          return;
+        }
+
+        try {
+          // Google Sheets WebApp Post
+          const response = await fetch(trimmedUrl, {
+            method: 'POST',
+            body: JSON.stringify(newTrackData),
+            headers: {
+              'Content-Type': 'text/plain;charset=utf-8'
+            }
+          });
+          
+          // Re-fetch entire sheet database
+          await fetchTracksFromSheet(true);
+
+          setTitle('');
+          setArtist('');
+          setComment('');
+          setUploadedImage('');
+          setAiPrompt('');
+          setAiImage('');
         } catch (err) {
-          console.error("Firestore submit error: ", err);
-          setErrorMsg('데이터 전송 지연이 발생했습니다. 다시 작성해 보세요.');
+          console.error("Google Sheets writing error: ", err);
+          setErrorMsg('구글 시트 전송에 실패했습니다. 배포 시 "모든 사용자(Anyone)"에게 액세스 권한이 주어졌는지 확인하세요.');
         } finally {
           setIsSubmitting(false);
         }
@@ -550,9 +622,28 @@
 
       const executeDeleteTrack = async () => {
         if (!confirmDeleteId) return;
+
+        const trimmedUrl = sheetUrl ? sheetUrl.trim() : "";
+        if (!trimmedUrl || !trimmedUrl.startsWith('http')) {
+          // Local Demo Delete
+          const currentDemo = JSON.parse(localStorage.getItem('summer_playlist_demo_data') || '[]');
+          const updatedDemo = currentDemo.filter(t => t.id !== confirmDeleteId);
+          localStorage.setItem('summer_playlist_demo_data', JSON.stringify(updatedDemo));
+          setTracks(updatedDemo);
+          if (nowPlaying?.id === confirmDeleteId) {
+            setNowPlaying(null);
+            setIsPlaying(false);
+          }
+          setConfirmDeleteId(null);
+          return;
+        }
+
         try {
-          const publicDocRef = db.collection('artifacts').doc(appId).collection('public').doc('data').collection('playlist').doc(confirmDeleteId);
-          await publicDocRef.delete();
+          const deleteUrl = trimmedUrl + "?action=delete&id=" + confirmDeleteId;
+          await fetch(deleteUrl, { method: 'GET' }); 
+          
+          await fetchTracksFromSheet(true);
+          
           if (nowPlaying?.id === confirmDeleteId) {
             setNowPlaying(null);
             setIsPlaying(false);
@@ -580,7 +671,7 @@
             scale: 2 
           }).then(canvas => {
             const link = document.createElement('a');
-            link.download = `우리반_여름_플레이리스트_${nowPlaying?.studentName || '카드'}.png`;
+            link.download = "우리반_여름_플레이리스트_" + (nowPlaying?.studentName || "카드") + ".png";
             link.href = canvas.toDataURL('image/png');
             link.click();
           }).catch(err => {
@@ -594,13 +685,23 @@
 
       const openYouTubeSearch = (title, artist, e) => {
         e.stopPropagation();
-        const queryStr = `${artist} ${title}`;
-        const url = `https://www.youtube.com/results?search_query=${encodeURIComponent(queryStr)}`;
+        const queryStr = artist + " " + title;
+        const url = "https://www.youtube.com/results?search_query=" + encodeURIComponent(queryStr);
         window.open(url, '_blank');
       };
 
+      const handleSaveSettings = (e) => {
+        e.preventDefault();
+        const trimmed = settingsInputUrl.trim();
+        setSheetUrl(trimmed);
+        localStorage.setItem('summer_playlist_sheet_url', trimmed);
+        setShowSettingsModal(false);
+      };
+
+      const isSheetUrlValid = sheetUrl && sheetUrl.trim().startsWith("http");
+
       return (
-        <div className="min-h-screen">
+        <div className="min-h-screen pb-12">
           
           {/* Custom Confirm Delete Modal */}
           {confirmDeleteId && (
@@ -611,7 +712,7 @@
                 </div>
                 <div>
                   <h3 className="text-lg font-bold text-slate-900">이 노래를 삭제하시겠습니까?</h3>
-                  <p className="text-xs text-slate-500 mt-1">우리 반 여름 보드에서 삭제되어 되돌릴 수 없습니다.</p>
+                  <p className="text-xs text-slate-500 mt-1">이 동작은 되돌릴 수 없습니다.</p>
                 </div>
                 <div className="flex gap-2">
                   <button 
@@ -631,25 +732,168 @@
             </div>
           )}
 
-          {/* Hidden Real-Time Audio stream */}
-          {audioUrl && (
-            <audio
-              ref={audioRef}
-              src={audioUrl}
-              onTimeUpdate={handleTimeUpdate}
-              onEnded={handleAudioEnded}
-            />
+          {/* Settings Modal (Google Web App URL configuration) */}
+          {showSettingsModal && (
+            <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+              <form onSubmit={handleSaveSettings} className="bg-white rounded-2xl p-6 max-w-lg w-full shadow-2xl border border-sky-100 space-y-4">
+                <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                  <h3 className="text-lg font-bold text-slate-900 flex items-center gap-2">
+                    <IconSettings />
+                    구글 스프레드시트 연동 설정
+                  </h3>
+                  <button type="button" onClick={() => setShowSettingsModal(false)} className="text-slate-400 hover:text-slate-600 font-bold">✕</button>
+                </div>
+                
+                <div className="space-y-3">
+                  <label className="block text-sm font-bold text-slate-800">구글 앱스 스크립트 웹앱 배포 URL</label>
+                  <input 
+                    type="url"
+                    placeholder="https://script.google.com/macros/s/.../exec"
+                    value={settingsInputUrl}
+                    onChange={(e) => setSettingsInputUrl(e.target.value)}
+                    className="w-full px-4 py-2.5 text-xs font-mono rounded-xl border border-slate-200 bg-slate-50 outline-none focus:ring-2 focus:ring-sky-500 focus:bg-white"
+                  />
+                  <p className="text-xs text-slate-500 leading-relaxed">
+                    구글 시트 연동 후 배포(Deploy)한 앱스 스크립트 웹앱 URL을 입력해 주세요. 
+                    미입력 시 브라우저 내부 임시 DB(데모 모드)로 실행됩니다.
+                  </p>
+                </div>
+
+                <div className="flex justify-between items-center gap-2 pt-3 border-t border-slate-100">
+                  <button 
+                    type="button" 
+                    onClick={() => {
+                      setShowSettingsModal(false);
+                      setShowGuideModal(true);
+                    }} 
+                    className="text-xs text-sky-600 hover:underline font-bold flex items-center gap-1"
+                  >
+                    <IconHelp /> 어떻게 만드나요? (설정 가이드)
+                  </button>
+                  <div className="flex gap-2">
+                    <button 
+                      type="button" 
+                      onClick={() => setShowSettingsModal(false)}
+                      className="px-4 py-2 rounded-xl bg-slate-100 text-slate-700 text-xs font-semibold hover:bg-slate-200"
+                    >
+                      닫기
+                    </button>
+                    <button 
+                      type="submit"
+                      className="px-4 py-2 rounded-xl bg-sky-600 text-white text-xs font-semibold hover:bg-sky-700 shadow-md"
+                    >
+                      저장하기
+                    </button>
+                  </div>
+                </div>
+              </form>
+            </div>
+          )}
+
+          {/* Setup Guide Modal */}
+          {showGuideModal && (
+            <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+              <div className="bg-white rounded-2xl p-6 max-w-2xl w-full max-h-[85vh] overflow-y-auto shadow-2xl border border-sky-100 space-y-4">
+                <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                  <h3 className="text-lg font-bold text-slate-900 flex items-center gap-2">
+                    <IconHelp />
+                    구글 스프레드시트 5분 연동 가이드
+                  </h3>
+                  <button type="button" onClick={() => setShowGuideModal(false)} className="text-slate-400 hover:text-slate-600 font-bold">✕</button>
+                </div>
+
+                <div className="space-y-4 text-xs md:text-sm text-slate-700 leading-relaxed">
+                  <div className="space-y-1">
+                    <h4 className="font-bold text-sky-800">1단계: 구글 스프레드시트 만들기</h4>
+                    <p>새 구글 스프레드시트를 만들고 첫 번째 행(A1~G1)을 다음과 같이 작성해 둡니다 (자동으로 추가되므로 비워두셔도 무방합니다).</p>
+                    <div className="p-2 bg-slate-50 border rounded font-mono text-xs">
+                      [A열: 이름] [B열: 제목] [C열: 가수] [D열: 코멘트] [E열: 커버종류] [F열: 이미지데이터] [G열: 타임스탬프]
+                    </div>
+                  </div>
+
+                  <div className="space-y-1">
+                    <h4 className="font-bold text-sky-800">2단계: 앱스 스크립트 에디터 열기</h4>
+                    <p>구글 시트 상단 메뉴의 <strong>확장 프로그램(Extensions) → Apps Script</strong>를 클릭합니다.</p>
+                  </div>
+
+                  <div className="space-y-1">
+                    <h4 className="font-bold text-sky-800">3단계: 아래 소스코드를 복사하여 붙여넣기</h4>
+                    <p>기존에 쓰여 있던 내용을 지우고 아래 소스를 통째로 붙여넣은 뒤 저장(Ctrl+S)합니다.</p>
+                    <pre className="p-2.5 bg-slate-950 text-slate-200 rounded text-[10px] font-mono overflow-x-auto max-h-48 whitespace-pre">
+                      {APPS_SCRIPT_CODE}
+                    </pre>
+                  </div>
+
+                  <div className="space-y-1">
+                    <h4 className="font-bold text-sky-800">4단계: 웹앱으로 배포하기 (가장 중요!)</h4>
+                    <ul className="list-disc pl-4 space-y-1">
+                      <li>오른쪽 상단의 <strong>새 배포(New Deployment)</strong> 버튼을 누릅니다.</li>
+                      <li>유형을 <strong>웹앱(Web app)</strong>으로 선택합니다.</li>
+                      <li>구성에서 <strong>다음 사용자로 실행</strong>을 <span className="font-bold text-rose-600">나(본인 계정)</span>로 설정합니다.</li>
+                      <li><strong>액세스할 수 있는 사용자</strong>를 반드시 <span className="font-bold text-rose-600">모든 사용자(Anyone)</span>로 설정해야 학생들이 로그인 없이 자유롭게 쓸 수 있습니다.</li>
+                      <li>배포 버튼을 누르고 권한 승인을 완료한 후 생성된 <strong>웹앱 URL</strong>을 복사해 설정창에 넣어주세요!</li>
+                    </ul>
+                  </div>
+                </div>
+
+                <div className="flex justify-end pt-3 border-t border-slate-100">
+                  <button 
+                    onClick={() => {
+                      setShowGuideModal(false);
+                      setShowSettingsModal(true);
+                    }}
+                    className="px-5 py-2 rounded-xl bg-sky-600 text-white text-xs font-semibold hover:bg-sky-700"
+                  >
+                    이해했습니다 (URL 입력하러 가기)
+                  </button>
+                </div>
+              </div>
+            </div>
           )}
 
           {/* Header section */}
           <header className="relative overflow-hidden pt-12 pb-16 text-center text-sky-950 px-4">
             <div className="absolute top-0 left-0 right-0 h-4 bg-sky-300 opacity-20"></div>
+            
+            {/* Realtime database status bar */}
+            <div className="max-w-4xl mx-auto flex items-center justify-between px-4 py-2 mb-6 bg-white/60 border border-white/80 rounded-2xl text-xs shadow-sm">
+              <div className="flex items-center gap-2">
+                <span className={"w-2.5 h-2.5 rounded-full " + (isSyncing ? "bg-amber-400 animate-ping" : (isSheetUrlValid ? "bg-emerald-500 animate-pulse" : "bg-slate-400"))}></span>
+                <span className="font-semibold text-slate-700">
+                  {isSheetUrlValid ? "구글 시트 실시간 연동 중" : "로컬 데모 모드 (안전 구동)"}
+                </span>
+              </div>
+              <div className="flex items-center gap-3 text-slate-500">
+                <span>동기화: {lastSyncTime ? lastSyncTime.toLocaleTimeString() : '없음'}</span>
+                <button 
+                  onClick={() => fetchTracksFromSheet(true)}
+                  disabled={isSyncing}
+                  className="p-1.5 hover:bg-sky-100 rounded-lg transition-colors flex items-center gap-1 font-bold text-sky-800"
+                  title="강제 새로고침"
+                >
+                  <IconRefresh />
+                  <span>새로고침</span>
+                </button>
+                <button 
+                  onClick={() => {
+                    setSettingsInputUrl(sheetUrl);
+                    setShowSettingsModal(true);
+                  }}
+                  className="p-1.5 hover:bg-sky-100 rounded-lg transition-colors text-slate-600 flex items-center gap-1"
+                  title="설정"
+                >
+                  <IconSettings />
+                  <span className="font-bold">시트 연동</span>
+                </button>
+              </div>
+            </div>
+
             <div className="max-w-4xl mx-auto relative z-10">
               <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-sky-100/80 text-sky-700 font-semibold text-sm mb-4 border border-sky-200/50">
                 <span className="text-lg">🌊</span> [아티버셜 월간미술] 7월 여름플리 미술활동 연계
               </div>
               <h1 className="text-4xl md:text-5xl lg:text-6xl font-extrabold tracking-tight mb-4 drop-shadow-sm text-sky-900">
-                나의 <span className="text-sky-600 underline decoration-wavy decoration-yellow-400">여름 플레이리스트</span>
+                우리 반 <span className="text-sky-600 underline decoration-wavy decoration-yellow-400">여름 플레이리스트</span>
               </h1>
               <p className="text-base md:text-lg text-sky-800/90 font-medium max-w-2xl mx-auto leading-relaxed">
                 가장 애정하는 여름 분위기의 음원을 적고 예쁘게 커버 아트를 직접 디자인해 올려주세요! 우리 반 친구들의 마음을 모아 아름다운 전광판을 완성합니다.
@@ -730,21 +974,21 @@
                     <button
                       type="button"
                       onClick={() => setCoverType('preset')}
-                      className={`py-2 px-1 text-xs md:text-sm font-semibold rounded-lg transition-all ${coverType === 'preset' ? 'bg-white text-sky-700 shadow-sm' : 'text-slate-500 hover:text-sky-600'}`}
+                      className={"py-2 px-1 text-xs md:text-sm font-semibold rounded-lg transition-all " + (coverType === 'preset' ? 'bg-white text-sky-700 shadow-sm' : 'text-slate-500 hover:text-sky-600')}
                     >
                       기본 여름 테마
                     </button>
                     <button
                       type="button"
                       onClick={() => setCoverType('upload')}
-                      className={`py-2 px-1 text-xs md:text-sm font-semibold rounded-lg transition-all ${coverType === 'upload' ? 'bg-white text-sky-700 shadow-sm' : 'text-slate-500 hover:text-sky-600'}`}
+                      className={"py-2 px-1 text-xs md:text-sm font-semibold rounded-lg transition-all " + (coverType === 'upload' ? 'bg-white text-sky-700 shadow-sm' : 'text-slate-500 hover:text-sky-600')}
                     >
                       내 사진 업로드
                     </button>
                     <button
                       type="button"
                       onClick={() => setCoverType('ai')}
-                      className={`py-2 px-1 text-xs md:text-sm font-semibold rounded-lg transition-all ${coverType === 'ai' ? 'bg-white text-sky-700 shadow-sm' : 'text-slate-500 hover:text-sky-600'}`}
+                      className={"py-2 px-1 text-xs md:text-sm font-semibold rounded-lg transition-all " + (coverType === 'ai' ? 'bg-white text-sky-700 shadow-sm' : 'text-slate-500 hover:text-sky-600')}
                     >
                       AI 화가 추천
                     </button>
@@ -760,7 +1004,7 @@
                             type="button"
                             onClick={() => setSelectedPreset(index)}
                             style={{ background: preset.style }}
-                            className={`aspect-square rounded-lg flex items-center justify-center text-2xl transition-all relative group ${selectedPreset === index ? 'ring-4 ring-offset-2 ring-sky-500 scale-105' : 'hover:scale-105'}`}
+                            className={"aspect-square rounded-lg flex items-center justify-center text-2xl transition-all relative group " + (selectedPreset === index ? 'ring-4 ring-offset-2 ring-sky-50 scale-105' : 'hover:scale-105')}
                             title={preset.name}
                           >
                             <span>{preset.emoji}</span>
@@ -894,7 +1138,7 @@
                       {nowPlaying.coverType === 'preset' ? (
                         <div 
                           style={{ background: JSON.parse(nowPlaying.coverArt).style }} 
-                          className={`w-28 h-28 rounded-full flex items-center justify-center text-4xl shadow-lg border-4 border-slate-900/40 relative ${isPlaying ? 'animate-spin-slow' : 'animate-spin-slow animate-spin-paused'}`}
+                          className={"w-28 h-28 rounded-full flex items-center justify-center text-4xl shadow-lg border-4 border-slate-900/40 relative " + (isPlaying ? "animate-spin-slow" : "animate-spin-slow animate-spin-paused")}
                         >
                           <span>{JSON.parse(nowPlaying.coverArt).emoji}</span>
                           <div className="absolute inset-0 rounded-full border-12 border-black/30 flex items-center justify-center">
@@ -906,7 +1150,7 @@
                           <img 
                             src={nowPlaying.coverArt} 
                             alt="Now Playing Cover" 
-                            className={`w-28 h-28 object-cover rounded-full shadow-lg border-4 border-slate-900/40 ${isPlaying ? 'animate-spin-slow' : 'animate-spin-slow animate-spin-paused'}`} 
+                            className={"w-28 h-28 object-cover rounded-full shadow-lg border-4 border-slate-900/40 " + (isPlaying ? "animate-spin-slow" : "animate-spin-slow animate-spin-paused")} 
                           />
                           <div className="absolute inset-0 rounded-full bg-black/10 border-12 border-black/30 flex items-center justify-center">
                             <div className="w-6 h-6 rounded-full bg-sky-950 border border-white/20"></div>
@@ -1056,7 +1300,7 @@
                         <div 
                           key={track.id}
                           onClick={() => handlePlayTrack(track)}
-                          className={`glass-card rounded-2xl p-4 border transition-all cursor-pointer hover:shadow-md hover:scale-[1.02] relative group flex items-center gap-4 ${isTrackActive ? 'ring-2 ring-sky-500 bg-sky-50/70 border-sky-300' : 'border-sky-100'}`}
+                          className={"glass-card rounded-2xl p-4 border transition-all cursor-pointer hover:shadow-md hover:scale-[1.02] relative group flex items-center gap-4 " + (isTrackActive ? "ring-2 ring-sky-500 bg-sky-50/70 border-sky-300" : "border-sky-100")}
                         >
                           <div className="w-20 h-20 shrink-0 rounded-xl overflow-hidden shadow-md relative flex items-center justify-center">
                             {track.coverType === 'preset' && parsedPreset ? (
@@ -1144,7 +1388,7 @@
                   </button>
                 </div>
 
-                <div className="p-6 bg-white" id={`printable-card-${nowPlaying.id}`}>
+                <div className="p-6 bg-white" id={"printable-card-" + nowPlaying.id}>
                   <div className="border-4 border-dashed border-sky-100 rounded-2xl p-5 text-center bg-sky-50/20 relative">
                     
                     <div className="text-sky-950 mb-4 select-none">
@@ -1204,7 +1448,7 @@
 
                 <div className="bg-sky-50 px-5 py-4 border-t border-sky-200 flex flex-col gap-2">
                   <button
-                    onClick={() => handleExportCard(`printable-card-${nowPlaying.id}`)}
+                    onClick={() => handleExportCard("printable-card-" + nowPlaying.id)}
                     className="w-full bg-sky-600 hover:bg-sky-700 text-white font-bold py-3 rounded-xl shadow-md transition-colors flex items-center justify-center gap-2"
                   >
                     <IconDownload />
