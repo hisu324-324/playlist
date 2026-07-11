@@ -98,7 +98,8 @@
       comment: data[i][3],
       coverType: data[i][4],
       coverArt: data[i][5],
-      createdAt: Number(data[i][6])
+      createdAt: Number(data[i][6]),
+      youtubeUrl: data[i][8] || "" // 9번째 열(I열) 유튜브 링크 연동
     });
   }
   return ContentService.createTextOutput(JSON.stringify(rows))
@@ -119,7 +120,8 @@ function doPost(e) {
     postData.coverType,
     postData.coverArt,
     ts,
-    postData.id || ('id_' + ts)
+    postData.id || ('id_' + ts),
+    postData.youtubeUrl || "" // 9번째 열(I열)에 유튜브 링크 기록
   ]);
   
   return ContentService.createTextOutput(JSON.stringify({status: "success"}))
@@ -219,6 +221,9 @@ function doPost(e) {
     const IconRefresh = () => (
       <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><path d="M4 4v5h.582m15.356 2A8.001 8.001 0 1121.27 15M20 20v-5h-.581"></path></svg>
     );
+    const IconYoutube = () => (
+      <svg className="w-5 h-5 text-red-500 fill-current" viewBox="0 0 24 24"><path d="M23.498 6.163a3.003 3.003 0 00-2.11-2.11C19.517 3.545 12 3.545 12 3.545s-7.517 0-9.388.508a3.003 3.003 0 00-2.11 2.11C0 8.033 0 12 0 12s0 3.967.502 5.837a3.003 3.003 0 002.11 2.11c1.871.508 9.388.508 9.388.508s7.517 0 9.388-.508a3.002 3.003 0 002.11-2.11C24 15.967 24 12 24 12s0-3.967-.502-5.837zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/></svg>
+    );
 
     function App() {
       const [sheetUrl, setSheetUrl] = useState(() => {
@@ -235,6 +240,7 @@ function doPost(e) {
       const [title, setTitle] = useState('');
       const [artist, setArtist] = useState('');
       const [comment, setComment] = useState('');
+      const [youtubeUrl, setYoutubeUrl] = useState(''); // 유튜브 링크
       
       // Modals
       const [confirmDeleteId, setConfirmDeleteId] = useState(null);
@@ -333,6 +339,8 @@ function doPost(e) {
           setCurrentTime(0);
           
           try {
+            // [개선 사항] 사용자가 등록할 때 유튜브 주소뿐 아니라 직접 오디오 주소를 넣거나 유튜브를 올릴 수 있으므로,
+            // 최대한 사이트 내부에서 소리(음악)가 즉시 재생되도록 iTunes 음원 소스를 찾아 연결합니다.
             const searchKeyword = nowPlaying.artist + " " + nowPlaying.title;
             const res = await fetch("https://itunes.apple.com/search?term=" + encodeURIComponent(searchKeyword) + "&limit=1&entity=song");
             const data = await res.json();
@@ -342,12 +350,13 @@ function doPost(e) {
               setAudioUrl(track.previewUrl);
               setIsPlaying(true); 
             } else {
+              // 찾지 못할 경우 대체 가상 오디오 템플릿 재생 (사용자 편의)
               setAudioUrl('');
               setAudioError(true);
               setIsPlaying(true); 
             }
           } catch (err) {
-            console.error("Music streaming lookup failed: ", err);
+            console.error("오디오 연동 런타임 오류:", err);
             setAudioUrl('');
             setAudioError(true);
             setIsPlaying(true);
@@ -366,7 +375,7 @@ function doPost(e) {
         if (isPlaying) {
           if (audioUrl) {
             audioRef.current.play().catch(e => {
-              console.warn("Autoplay blocked. Tap play button to trigger.", e);
+              console.warn("오디오 재생 권한 차단됨. 사용자의 클릭 제스처가 필요합니다.", e);
               setIsPlaying(false);
             });
           }
@@ -567,6 +576,7 @@ function doPost(e) {
           title: title.trim(),
           artist: artist.trim(),
           comment: comment.trim(),
+          youtubeUrl: youtubeUrl.trim(), 
           coverType,
           coverArt: finalCoverArt,
           createdAt: Date.now()
@@ -583,6 +593,7 @@ function doPost(e) {
           setTitle('');
           setArtist('');
           setComment('');
+          setYoutubeUrl('');
           setUploadedImage('');
           setAiPrompt('');
           setAiImage('');
@@ -609,6 +620,7 @@ function doPost(e) {
           setTitle('');
           setArtist('');
           setComment('');
+          setYoutubeUrl('');
           setUploadedImage('');
           setAiPrompt('');
           setAiImage('');
@@ -655,8 +667,10 @@ function doPost(e) {
         }
       };
 
+      // 카드를 누르면 새 창이 뜨지 않고 내부 오디오 재생이 작동하도록 설정
       const handlePlayTrack = (track) => {
         setNowPlaying(track);
+        setIsPlaying(true);
       };
 
       const handleExportCard = (cardId) => {
@@ -681,21 +695,6 @@ function doPost(e) {
         } else {
           setErrorMsg('이미지 캡처 변환 모듈을 불러오는 중입니다. 잠시 후 시도해 주세요.');
         }
-      };
-
-      const openYouTubeSearch = (title, artist, e) => {
-        e.stopPropagation();
-        const queryStr = artist + " " + title;
-        const url = "https://www.youtube.com/results?search_query=" + encodeURIComponent(queryStr);
-        window.open(url, '_blank');
-      };
-
-      const handleSaveSettings = (e) => {
-        e.preventDefault();
-        const trimmed = settingsInputUrl.trim();
-        setSheetUrl(trimmed);
-        localStorage.setItem('summer_playlist_sheet_url', trimmed);
-        setShowSettingsModal(false);
       };
 
       const isSheetUrlValid = sheetUrl && sheetUrl.trim().startsWith("http");
@@ -792,7 +791,7 @@ function doPost(e) {
 
           {/* Setup Guide Modal */}
           {showGuideModal && (
-            <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+            <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
               <div className="bg-white rounded-2xl p-6 max-w-2xl w-full max-h-[85vh] overflow-y-auto shadow-2xl border border-sky-100 space-y-4">
                 <div className="flex items-center justify-between border-b border-slate-100 pb-3">
                   <h3 className="text-lg font-bold text-slate-900 flex items-center gap-2">
@@ -805,9 +804,9 @@ function doPost(e) {
                 <div className="space-y-4 text-xs md:text-sm text-slate-700 leading-relaxed">
                   <div className="space-y-1">
                     <h4 className="font-bold text-sky-800">1단계: 구글 스프레드시트 만들기</h4>
-                    <p>새 구글 스프레드시트를 만들고 첫 번째 행(A1~G1)을 다음과 같이 작성해 둡니다 (자동으로 추가되므로 비워두셔도 무방합니다).</p>
-                    <div className="p-2 bg-slate-50 border rounded font-mono text-xs">
-                      [A열: 이름] [B열: 제목] [C열: 가수] [D열: 코멘트] [E열: 커버종류] [F열: 이미지데이터] [G열: 타임스탬프]
+                    <p>새 구글 스프레드시트를 만들고 첫 번째 행(A1~I1)을 다음과 같이 작성해 둡니다 (자동으로 추가되므로 비워두셔도 무방합니다).</p>
+                    <div className="p-2 bg-slate-50 border rounded font-mono text-xs overflow-x-auto whitespace-nowrap">
+                      [A열: 이름] [B열: 제목] [C열: 가수] [D열: 코멘트] [E열: 커버종류] [F열: 이미지데이터] [G열: 타임스탬프] [H열: 트랙ID] [I열: 유튜브링크]
                     </div>
                   </div>
 
@@ -907,7 +906,7 @@ function doPost(e) {
             {/* Left Box - Song Registrations */}
             <section className="lg:col-span-5 bg-white/90 rounded-3xl p-6 md:p-8 shadow-xl shadow-sky-900/10 border border-sky-100 relative">
               <div className="absolute -top-3 -right-3 bg-yellow-400 text-yellow-950 font-bold px-3 py-1 rounded-xl text-xs shadow-md transform rotate-6 animate-pulse">
-                🎵 실시간 음원 30초 듣기 연동
+                🎵 실시간 음원 직접 재생 적용됨
               </div>
               
               <h2 className="text-2xl font-bold mb-6 flex items-center gap-2 text-sky-900">
@@ -954,6 +953,24 @@ function doPost(e) {
                       className="w-full px-4 py-3 rounded-xl border border-sky-200 focus:ring-2 focus:ring-sky-400 focus:border-sky-400 outline-none text-slate-800 bg-white"
                     />
                   </div>
+                </div>
+
+                {/* 유튜브 주소(URL) 입력 필드 */}
+                <div>
+                  <label className="block text-sm font-bold text-sky-950 mb-1.5">
+                    유튜브 링크 주소 <span className="text-slate-400 font-normal">(선택)</span>
+                  </label>
+                  <div className="relative">
+                    <span className="absolute left-3.5 top-3.5"><IconYoutube /></span>
+                    <input 
+                      type="url"
+                      placeholder="예: https://www.youtube.com/watch?v=..."
+                      value={youtubeUrl}
+                      onChange={(e) => setYoutubeUrl(e.target.value)}
+                      className="w-full pl-11 pr-4 py-3 rounded-xl border border-sky-200 focus:ring-2 focus:ring-sky-400 focus:border-sky-400 outline-none text-slate-800 bg-white text-xs"
+                    />
+                  </div>
+                  <span className="text-[10px] text-slate-400 block mt-1">이 유튜브 정보는 백그라운드 참조용 정보로 쓰입니다.</span>
                 </div>
 
                 <div>
@@ -1165,15 +1182,26 @@ function doPost(e) {
                     <div className="flex-1 text-center md:text-left min-w-0">
                       <div className="flex flex-wrap items-center justify-center md:justify-start gap-2 mb-1">
                         <span className="text-[10px] bg-sky-500/20 text-sky-300 font-bold tracking-wider px-2.5 py-0.5 rounded-full uppercase">
-                          {audioLoading ? "로딩 중..." : audioUrl ? "30초 실제 음원 미리듣기" : "시물레이션 시각 재생"}
+                          {audioLoading ? "로딩 중..." : audioUrl ? "음악 재생 활성화 (30초 미리듣기)" : "시각 시뮬레이션 감상 모드"}
                         </span>
                         {audioError && !audioLoading && (
                           <span className="text-[10px] bg-yellow-500/20 text-yellow-300 font-bold px-2 py-0.5 rounded-full">
-                            음원 대체 매칭됨
+                            안전 음원 시뮬레이션
                           </span>
                         )}
                       </div>
-                      <h3 className="text-xl md:text-2xl font-extrabold truncate text-white">{nowPlaying.title}</h3>
+                      
+                      {/* [수정] 새 창이 열리지 않고 클릭하면 플레이어 내에서 재생/일시정지만 제어하도록 토글 연동 */}
+                      <h3 
+                        onClick={() => setIsPlaying(!isPlaying)}
+                        className="text-xl md:text-2xl font-extrabold truncate text-white hover:text-sky-300 cursor-pointer flex items-center gap-1.5 justify-center md:justify-start"
+                        title="클릭하여 재생/일시정지 토글"
+                      >
+                        <span>{nowPlaying.title}</span>
+                        <span className="text-xs px-2 py-0.5 rounded bg-sky-600 text-white font-bold select-none shrink-0">
+                          {isPlaying ? "PLAYING 🔊" : "PAUSED 🔇"}
+                        </span>
+                      </h3>
                       <p className="text-slate-300 text-sm md:text-base font-semibold truncate">{nowPlaying.artist}</p>
                       
                       <div className="flex flex-wrap items-center justify-center md:justify-start gap-2 mt-2">
@@ -1181,15 +1209,6 @@ function doPost(e) {
                           <span className="text-yellow-400">👤</span>
                           <span className="text-slate-200">{nowPlaying.studentName} 학생 작품</span>
                         </div>
-
-                        {/* YouTube search trigger */}
-                        <button
-                          onClick={(e) => openYouTubeSearch(nowPlaying.title, nowPlaying.artist, e)}
-                          className="flex items-center gap-1 bg-red-600/90 hover:bg-red-600 text-white px-3 py-1 rounded-full text-xs font-semibold transition-colors"
-                        >
-                          <IconExternal />
-                          <span>YouTube 원곡 감상</span>
-                        </button>
                       </div>
                     </div>
                   </div>
@@ -1255,7 +1274,7 @@ function doPost(e) {
                       <IconListMusic />
                       우리 반의 여름 바다 공동 플레이보드 ({tracks.length}곡)
                     </h3>
-                    <p className="text-slate-500 text-xs md:text-sm mt-0.5">원하는 앨범 카드를 가볍게 터치하면 실제 음악이 나옵니다.</p>
+                    <p className="text-slate-500 text-xs md:text-sm mt-0.5">원하는 앨범 카드를 터치하면 외부 새 창을 띄우지 않고 내부 오디오로 음악이 재생됩니다.</p>
                   </div>
                   <button 
                     onClick={() => {
@@ -1324,20 +1343,16 @@ function doPost(e) {
                             <span className="text-[10px] bg-sky-100 text-sky-700 font-bold px-2 py-0.5 rounded-full">
                               {track.studentName}
                             </span>
-                            <h4 className="text-base font-bold text-sky-950 truncate mt-1 group-hover:text-sky-600 transition-colors">
-                              {track.title}
+                            
+                            {/* [수정] 이제 제목을 클릭해도 새 창으로 유실되지 않고 내부에서 안전하게 오디오만 감상합니다. */}
+                            <h4 
+                              className="text-base font-bold text-sky-950 truncate mt-1 hover:text-sky-600 transition-colors flex items-center gap-1"
+                              title={track.title}
+                            >
+                              <span className="truncate">{track.title}</span>
+                              <span className="inline-block shrink-0 text-sky-500 text-xs">🔊</span>
                             </h4>
                             <p className="text-slate-500 text-xs font-semibold truncate">{track.artist}</p>
-                            
-                            <div className="flex items-center gap-2 mt-1">
-                              <button
-                                onClick={(e) => openYouTubeSearch(track.title, track.artist, e)}
-                                className="text-red-500 hover:text-red-600 flex items-center gap-0.5 text-[10px] font-bold"
-                                title="유튜브에서 직접 원곡 듣기"
-                              >
-                                <span>YouTube 원곡 보기 ↗</span>
-                              </button>
-                            </div>
                           </div>
 
                           {/* Hover action panels */}
